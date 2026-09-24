@@ -4,288 +4,287 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Dpd;
-use App\Models\Spd;
-use App\Models\Employee;
+use App\Models\DpdReport;
+use App\Models\DpdExpense;
 use App\Models\DpdExpenseCategory;
-use App\Http\Requests\CreateDpdRequest;
-use App\Services\DpdNumberGeneratorService;
+use App\Models\Spd;
+use App\Models\SpdEmployee;
+use App\Models\Employee;
+use App\Services\AppSettingService;
+use App\Services\DpdApprovalService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DpdController extends Controller
 {
-    protected $numberGenerator;
-
-    public function __construct(DpdNumberGeneratorService $numberGenerator)
+    public function index(Request $request)
     {
-        $this->numberGenerator = $numberGenerator;
-    }
+        $user = $request->user();
+        $employee = $user->employee;
 
-    public function index()
-    {
-        $dpds = Dpd::with(['spd', 'employee', 'reports', 'expenses.category'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = Dpd::with(['spd', 'employee.user', 'reports', 'expenses.category']);
+
+        if ($employee && $employee->role->name !== 'super_admin') {
+            $query->where('employee_id', $employee->id);
+        }
+
+        $dpds = $query->orderBy('created_at', 'desc')->get();
 
         return response()->json($dpds);
     }
 
     public function show(Dpd $dpd)
     {
-        $dpd->load(['spd', 'employee', 'reports', 'expenses.category']);
+        $dpd->load(['spd.employees.employee', 'employee.user', 'reports', 'expenses.category']);
 
-        return response()->json($dpd);
+        $spd = $dpd->spd;
+        $tripDays = $spd ? $spd->start_date->diffInDays($spd->end_date) + 1 : 0;
+
+        return response()->json([
+            'dpd' => $dpd,
+            'trip_days' => $tripDays,
+        ]);
     }
 
-    public function store(CreateDpdRequest $request)
+    public function store(Request $request)
     {
-        $data = $request->validated();
+        $validated = $request->validate([
+            'spd_id' => 'required|exists:spds,id',
+            'submission_date' => 'required|date',
+            'reports' => 'nullable|array',
+            'reports.*.title' => 'required_with:reports|string',
+            'reports.*.description' => 'nullable|string',
+            'reports.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'expenses' => 'required|array|min:1',
+            'expenses.*.category_id' => 'required|exists:dpd_expense_categories,id',
+            'expenses.*.description' => 'required|string',
+            'expenses.*.amount' => 'required|numeric|min:0',
+            'expenses.*.expense_date' => 'required|date',
+            'expenses.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
 
-        // Pastikan employee terkait dengan SPD
-        $spd = Spd::with('employees')->findOrFail($data['spd_id']);
-        $requestedEmployee = Employee::findOrFail($data['employee_id']);
+        $user = $request->user();
+        $employee = $user->employee;
 
-        // Validasi employee terikat dengan SPD (pemohon utama atau pengikut)
-        $isPrimary = SpdEmployee::where('spd_id', $spd->id)
-            ->where('employee_id', $requestedEmployee->id)
-            ->where('is_primary', true)
-            ->exists();
-
-        $isFollower = SpdEmployee::where('spd_id', $spd->id)
-            ->where('employee_id', $requestedEmployee->id)
-            ->exists();
-
-        if (!$isPrimary && !$isFollower) {
-            // Cek apakah user adalah super_admin atau admin departemen terkait
-            if (!auth()->user() || auth()->user()->cannot('manage', $spd)) {
-                return response()->json([
-                    'message' => 'Hanya pemohon SPD (primary), pengikut SPD, atau admin departemen yang boleh membuat DPD ini.'
-                ], 403);
-            }
+        if (!$employee) {
+            return response()->json(['message' => 'User tidak memiliki data employee.'], 403);
         }
 
-        return DB::transaction(function () use ($data, $spd, $requestedEmployee) {
-            // Generate nomor DPD
+        $spd = Spd::findOrFail($validated['spd_id']);
+
+        if ($spd->status !== 'approved') {
+            return response()->json(['message' => 'DPD hanya bisa dibuat dari SPD yang sudah approved.'], 422);
+        }
+
+        $isParticipant = SpdEmployee::where('spd_id', $spd->id)
+            ->where('employee_id', $employee->id)
+            ->exists();
+
+        if (!$isParticipant && $employee->role->name !== 'super_admin') {
+            return response()->json(['message' => 'Anda bukan peserta SPD ini.'], 403);
+        }
+
+        $existingDpd = Dpd::where('spd_id', $spd->id)->first();
+        if ($existingDpd) {
+            return response()->json(['message' => 'SPD ini sudah memiliki DPD.'], 422);
+        }
+
+        $submissionDeadlineDays = app(AppSettingService::class)->getDpdSubmissionDeadlineDays();
+        $deadline = $spd->end_date->addDays($submissionDeadlineDays);
+        if (now()->gt($deadline)) {
+            return response()->json([
+                'message' => 'Batas waktu pengajuan DPD telah lewat. SPD selesai pada ' . $spd->end_date->format('d-m-Y') . ', batas pengajuan ' . $submissionDeadlineDays . ' hari setelahnya.'
+            ], 422);
+        }
+
+        $dpd = DB::transaction(function () use ($validated, $spd, $employee) {
             $dpd = Dpd::create([
                 'spd_id' => $spd->id,
-                'employee_id' => $requestedEmployee->id,
-                'submission_date' => $data['submission_date'],
+                'employee_id' => $employee->id,
+                'submission_date' => $validated['submission_date'],
                 'status' => 'draft',
+                'total_nominal' => 0,
             ]);
 
-            $this->numberGenerator->generateNumber($dpd);
-
-            // Process laporan kegiatan (optional)
-            if (isset($data['reports']) && is_array($data['reports'])) {
-                foreach ($data['reports'] as $reportData) {
+            if (!empty($validated['reports'])) {
+                foreach ($validated['reports'] as $reportData) {
                     $attachmentPath = null;
-                    if (isset($reportData['attachment']) && $reportData['attachment'] instanceof \Illuminate\Http\UploadedFile) {
+                    if (!empty($reportData['attachment'])) {
                         $attachmentPath = $reportData['attachment']->store('dpd_reports', 'public');
                     }
 
                     $dpd->reports()->create([
-                        'title' => $reportData['title'] ?? '',
+                        'title' => $reportData['title'],
                         'description' => $reportData['description'] ?? null,
                         'attachment_path' => $attachmentPath,
                     ]);
                 }
             }
 
-            // Process item nota (wajib minimal 1)
-            if (isset($data['expenses']) && is_array($data['expenses'])) {
-                // Validasi minimal 1 item nota
-                $validExpenses = array_filter($data['expenses'], function ($item) {
-                    return !empty($item['description']) && !empty($item['amount']) && !empty($item['expense_date']);
-                });
-
-                if (empty($validExpenses)) {
-                    $dpd->delete();
-                    return response()->json([
-                        'message' => 'Minimal ada 1 item nota yang valid.'
-                    ], 422);
+            $totalNominal = 0;
+            foreach ($validated['expenses'] as $expenseData) {
+                $attachmentPath = null;
+                if (!empty($expenseData['attachment'])) {
+                    $attachmentPath = $expenseData['attachment']->store('dpd_expenses', 'public');
                 }
 
-                foreach ($data['expenses'] as $expenseData) {
-                    // Validasi item
-                    if (empty($expenseData['description']) || empty($expenseData['amount']) || empty($expenseData['expense_date'])) {
-                        continue;
-                    }
+                $dpd->expenses()->create([
+                    'category_id' => $expenseData['category_id'],
+                    'description' => $expenseData['description'],
+                    'amount' => $expenseData['amount'],
+                    'expense_date' => $expenseData['expense_date'],
+                    'attachment_path' => $attachmentPath,
+                ]);
 
-                    $attachmentPath = null;
-                    if (isset($expenseData['attachment']) && $expenseData['attachment'] instanceof \Illuminate\Http\UploadedFile) {
-                        $attachmentPath = $expenseData['attachment']->store('dpd_expenses', 'public');
-                    }
-
-                    $categoryId = null;
-                    if (!empty($expenseData['category_id'])) {
-                        $categoryId = $expenseData['category_id'];
-                    } else {
-                        // Default ke kategori "lain-lain" jika tidak dipilih
-                        $defaultCategory = DpdExpenseCategory::where('code', 'other')->first();
-                        if ($defaultCategory) {
-                            $categoryId = $defaultCategory->id;
-                        }
-                    }
-
-                    $dpd->expenses()->create([
-                        'category_id' => $categoryId,
-                        'description' => $expenseData['description'],
-                        'amount' => (float) $expenseData['amount'],
-                        'expense_date' => $expenseData['expense_date'],
-                        'attachment_path' => $attachmentPath,
-                    ]);
-                }
+                $totalNominal += (float) $expenseData['amount'];
             }
 
-            // Hitung total nominal
-            $dpd->calculateTotalNominal();
+            $dpd->update(['total_nominal' => $totalNominal]);
 
-            return response()->json($dpd->load(['spd', 'employee', 'reports', 'expenses.category']), 201);
+            return $dpd;
         });
+
+        $dpd->load(['spd', 'employee.user', 'reports', 'expenses.category']);
+
+        $warnings = app(DpdApprovalService::class)->validateDpdSubmission($dpd);
+
+        return response()->json(array_merge($dpd->toArray(), ['warnings' => $warnings]), 201);
     }
 
     public function update(Request $request, Dpd $dpd)
     {
-        $data = $request->validated();
-
-        // Cek bisa diedit (hanya draft)
         if ($dpd->status !== 'draft') {
-            return response()->json([
-                'message' => 'Hanya DPD dengan status draft yang bisa diedit.'
-            ], 403);
+            return response()->json(['message' => 'Hanya DPD dengan status draft yang bisa diedit.'], 403);
         }
 
-        return DB::transaction(function () use ($request, $dpd) {
-            // Update laporan kegiatan
-            if (isset($data['reports'])) {
-                foreach ($dpd->reports as $report) {
-                    if (isset($data['reports'][$report->id])) {
-                        // Update existing
-                        $reportData = $data['reports'][$report->id];
-                        $attachmentPath = $report->attachment_path;
+        $validated = $request->validate([
+            'submission_date' => 'sometimes|date',
+            'reports' => 'nullable|array',
+            'reports.*.id' => 'nullable|exists:dpd_reports,id',
+            'reports.*.title' => 'required_with:reports|string',
+            'reports.*.description' => 'nullable|string',
+            'reports.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'expenses' => 'sometimes|array|min:1',
+            'expenses.*.id' => 'nullable|exists:dpd_expenses,id',
+            'expenses.*.category_id' => 'required_with:expenses|exists:dpd_expense_categories,id',
+            'expenses.*.description' => 'required_with:expenses|string',
+            'expenses.*.amount' => 'required_with:expenses|numeric|min:0',
+            'expenses.*.expense_date' => 'required_with:expenses|date',
+            'expenses.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
 
-                        if (isset($reportData['attachment']) && $reportData['attachment'] instanceof \Illuminate\Http\UploadedFile) {
-                            // Hapus file lama
-                            if ($report->attachment_path) {
-                                Storage::delete($report->attachment_path);
-                            }
-                            $attachmentPath = $reportData['attachment']->store('dpd_reports', 'public');
-                        }
+        $dpd = DB::transaction(function () use ($validated, $dpd) {
+            if (isset($validated['submission_date'])) {
+                $dpd->update(['submission_date' => $validated['submission_date']]);
+            }
 
+            if (isset($validated['reports'])) {
+                $existingIds = $dpd->reports()->pluck('id')->toArray();
+                $newIds = collect($validated['reports'])->whereNotNull('id')->pluck('id')->toArray();
+                $toDelete = array_diff($existingIds, $newIds);
+
+                DpdReport::destroy($toDelete);
+
+                foreach ($validated['reports'] as $reportData) {
+                    $attachmentPath = null;
+                    if (!empty($reportData['attachment'])) {
+                        $attachmentPath = $reportData['attachment']->store('dpd_reports', 'public');
+                    }
+
+                    if (!empty($reportData['id'])) {
+                        $report = DpdReport::find($reportData['id']);
                         $report->update([
-                            'title' => $reportData['title'] ?? $report->title,
-                            'description' => $reportData['description'] ?? $report->description,
-                            'attachment_path' => $attachmentPath,
+                            'title' => $reportData['title'],
+                            'description' => $reportData['description'] ?? null,
+                            'attachment_path' => $attachmentPath ?? $report->attachment_path,
                         ]);
                     } else {
-                        // Hapus
-                        if ($report->attachment_path) {
-                            Storage::delete($report->attachment_path);
-                        }
-                        $report->delete();
+                        $dpd->reports()->create([
+                            'title' => $reportData['title'],
+                            'description' => $reportData['description'] ?? null,
+                            'attachment_path' => $attachmentPath,
+                        ]);
                     }
-                }
-
-                // Tambah laporan baru
-                if (isset($data['reports']['new'])) {
-                    $newReport = $data['reports']['new'];
-                    $attachmentPath = null;
-                    if (isset($newReport['attachment']) && $newReport['attachment'] instanceof \Illuminate\Http\UploadedFile) {
-                        $attachmentPath = $newReport['attachment']->store('dpd_reports', 'public');
-                    }
-
-                    $dpd->reports()->create([
-                        'title' => $newReport['title'] ?? '',
-                        'description' => $newReport['description'] ?? null,
-                        'attachment_path' => $attachmentPath,
-                    ]);
                 }
             }
 
-            // Update item nota
-            if (isset($data['expenses'])) {
-                foreach ($dpd->expenses as $expense) {
-                    if (isset($data['expenses'][$expense->id])) {
-                        $expenseData = $data['expenses'][$expense->id];
-                        $attachmentPath = $expense->attachment_path;
+            if (isset($validated['expenses'])) {
+                $existingIds = $dpd->expenses()->pluck('id')->toArray();
+                $newIds = collect($validated['expenses'])->whereNotNull('id')->pluck('id')->toArray();
+                $toDelete = array_diff($existingIds, $newIds);
 
-                        if (isset($expenseData['attachment']) && $expenseData['attachment'] instanceof \Illuminate\Http\UploadedFile) {
-                            if ($expense->attachment_path) {
-                                Storage::delete($expense->attachment_path);
-                            }
-                            $attachmentPath = $expenseData['attachment']->store('dpd_expenses', 'public');
-                        }
+                foreach ($toDelete as $id) {
+                    $expense = DpdExpense::find($id);
+                    if ($expense->attachment_path) {
+                        Storage::disk('public')->delete($expense->attachment_path);
+                    }
+                    $expense->delete();
+                }
 
+                $totalNominal = 0;
+                foreach ($validated['expenses'] as $expenseData) {
+                    $attachmentPath = null;
+                    if (!empty($expenseData['attachment'])) {
+                        $attachmentPath = $expenseData['attachment']->store('dpd_expenses', 'public');
+                    }
+
+                    if (!empty($expenseData['id'])) {
+                        $expense = DpdExpense::find($expenseData['id']);
                         $expense->update([
-                            'category_id' => $expenseData['category_id'] ?? $expense->category_id,
-                            'description' => $expenseData['description'] ?? $expense->description,
-                            'amount' => (float) ($expenseData['amount'] ?? $expense->amount),
-                            'expense_date' => $expenseData['expense_date'] ?? $expense->expense_date,
+                            'category_id' => $expenseData['category_id'],
+                            'description' => $expenseData['description'],
+                            'amount' => $expenseData['amount'],
+                            'expense_date' => $expenseData['expense_date'],
+                            'attachment_path' => $attachmentPath ?? $expense->attachment_path,
+                        ]);
+                        $totalNominal += $expenseData['amount'];
+                    } else {
+                        $dpd->expenses()->create([
+                            'category_id' => $expenseData['category_id'],
+                            'description' => $expenseData['description'],
+                            'amount' => $expenseData['amount'],
+                            'expense_date' => $expenseData['expense_date'],
                             'attachment_path' => $attachmentPath,
                         ]);
-                    } else {
-                        // Hapus
-                        if ($expense->attachment_path) {
-                            Storage::delete($expense->attachment_path);
-                        }
-                        $expense->delete();
+                        $totalNominal += $expenseData['amount'];
                     }
                 }
 
-                // Tambah item nota baru
-                if (isset($data['expenses']['new'])) {
-                    $newExpense = $data['expenses']['new'];
-                    // Validasi minimal
-                    if (empty($newExpense['description']) || empty($newExpense['amount']) || empty($newExpense['expense_date'])) {
-                        return response()->json([
-                            'message' => 'Item nota harus memiliki deskripsi, nominal, dan tanggal.'
-                        ], 422);
-                    }
-
-                    $attachmentPath = null;
-                    if (isset($newExpense['attachment']) && $newExpense['attachment'] instanceof \Illuminate\Http\UploadedFile) {
-                        $attachmentPath = $newExpense['attachment']->store('dpd_expenses', 'public');
-                    }
-
-                    $categoryId = !empty($newExpense['category_id']) ? $newExpense['category_id'] : null;
-                    if (!$categoryId) {
-                        $defaultCategory = DpdExpenseCategory::where('code', 'other')->first();
-                        if ($defaultCategory) {
-                            $categoryId = $defaultCategory->id;
-                        }
-                    }
-
-                    $dpd->expenses()->create([
-                        'category_id' => $categoryId,
-                        'description' => $newExpense['description'],
-                        'amount' => (float) $newExpense['amount'],
-                        'expense_date' => $newExpense['expense_date'],
-                        'attachment_path' => $attachmentPath,
-                    ]);
-                }
+                $dpd->update(['total_nominal' => $totalNominal]);
             }
 
-            // Hitung ulang total nominal
-            $dpd->calculateTotalNominal();
-
-            return $dpd->load(['reports', 'expenses.category']);
+            return $dpd;
         });
+
+        return response()->json($dpd->load(['spd', 'employee.user', 'reports', 'expenses.category']));
     }
 
     public function destroy(Dpd $dpd)
     {
         if ($dpd->status !== 'draft') {
-            return response()->json([
-                'message' => 'Hanya DPD dengan status draft yang bisa dihapus.'
-            ], 403);
+            return response()->json(['message' => 'Hanya DPD dengan status draft yang bisa dihapus.'], 403);
         }
 
-        $dpd->expenses()->delete();
-        $dpd->reports()->delete();
+        foreach ($dpd->reports as $report) {
+            if ($report->attachment_path) {
+                Storage::disk('public')->delete($report->attachment_path);
+            }
+        }
+
+        foreach ($dpd->expenses as $expense) {
+            if ($expense->attachment_path) {
+                Storage::disk('public')->delete($expense->attachment_path);
+            }
+        }
+
         $dpd->delete();
 
         return response()->json(null, 204);
+    }
+
+    public function categories()
+    {
+        return response()->json(DpdExpenseCategory::all());
     }
 }

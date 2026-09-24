@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
-use App\Models\AppSetting;
 use App\Services\DpdNumberGeneratorService;
 
 class Dpd extends Model
@@ -24,6 +22,18 @@ class Dpd extends Model
         'spm_date' => 'date',
         'total_nominal' => 'decimal:2',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($dpd) {
+            if (empty($dpd->dpd_number)) {
+                $service = new DpdNumberGeneratorService();
+                $service->generateNumber($dpd);
+            }
+        });
+    }
 
     public function spd()
     {
@@ -45,40 +55,15 @@ class Dpd extends Model
         return $this->hasMany(DpdExpense::class, 'dpd_id');
     }
 
-    public function category()
+    public function approvalChains()
     {
-        return $this->belongsTo(DpdExpenseCategory::class);
+        return $this->hasMany(DpdApprovalChain::class);
     }
 
-    public function getTotalNominalAttribute($value)
+    public function recalculateTotal()
     {
-        return $value ?? 0;
-    }
-
-    public function setTotalNominalAttribute($value)
-    {
-        $this->attributes['total_nominal'] = is_numeric($value) ? (float) $value : 0;
-    }
-
-    public function calculateTotalNominal(): float
-    {
-        $total = $this->expenses()->sum(fn($q) => $q->amount);
+        $total = $this->expenses()->sum('amount');
         $this->update(['total_nominal' => $total]);
         return $total;
-    }
-
-    public function generateNumber()
-    {
-        $service = new DpdNumberGeneratorService();
-        $service->generateNumber($this);
-    }
-
-    public static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            $model->generateNumber();
-        });
     }
 }

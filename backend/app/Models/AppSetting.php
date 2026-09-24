@@ -33,5 +33,37 @@ class AppSetting extends Model
     protected static function boot()
     {
         parent::boot();
+
+        static::saving(function ($setting) {
+            // Validasi tipe data berdasarkan key saat save
+            $valid = self::validateSettingValue($setting->key, $setting->value);
+            if (!$valid) {
+                $message = 'Nilai setting tidak valid untuk key: ' . $setting->key;
+                throw new \InvalidArgumentException($message);
+            }
+        });
+    }
+
+    protected static function validateSettingValue(string $key, $value): bool
+    {
+        if ($value === null || $value === '') {
+            return true; // boleh kosong
+        }
+
+        // Validasi berdasarkan key
+        if ($key === 'dpd_submission_deadline_days') {
+            // Harus integer positif
+            $intVal = (int) $value;
+            return $intVal > 0 && (string) $intVal === (string) $value;
+        }
+
+        if ($key === 'max_nominal_per_day') {
+            // Harus numeric positif (bisa desimal)
+            $floatVal = (float) $value;
+            return $floatVal > 0 && (float) $floatVal === (float) $value;
+        }
+
+        // Key lain: biarkan bebas (validasi minimal ada value)
+        return true;
     }
 }

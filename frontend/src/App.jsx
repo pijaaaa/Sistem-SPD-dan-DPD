@@ -5,11 +5,20 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 import Login from './pages/Login';
+import './css/index.css';  // <-- Import Tailwind CSS
 import Departments from './pages/Departments';
 import Employees from './pages/Employees';
-
 import Approvals from './pages/Approvals';
 import Delegations from './pages/Delegations';
+import DpdList from './pages/DpdList';
+import DpdCreate from './pages/DpdCreate';
+import DpdDetail from './pages/DpdDetail';
+import DpdApprovals from './pages/DpdApprovals';
+import Settings from './pages/Settings';
+import Dashboard from './pages/Dashboard';
+import SpdList from './pages/SpdList';
+import SpdCreate from './pages/SpdCreate';
+import SpdDetail from './pages/SpdDetail';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,27 +30,34 @@ const queryClient = new QueryClient({
   },
 });
 
-const DashboardPlaceholder = () => (
-  <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
-    <h3 className="text-lg font-semibold mb-2">Selamat Datang</h3>
-    <p className="text-gray-600">Pilih menu di sidebar untuk memulai.</p>
-  </div>
-);
+const DashboardPlaceholder = () => <Dashboard />;
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      
+
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route path="/" element={<DashboardPlaceholder />} />
         
-        {/* Placeholder routes */}
-        <Route path="/spd/create" element={<div>Placeholder Buat SPD</div>} />
+        {/* SPD Routes - Milestone 3 */}
+        <Route path="/spd/create" element={<SpdCreate />} />
+        <Route path="/spd" element={<SpdList />} />
+        <Route path="/spd/:id" element={<SpdDetail />} />
         <Route path="/my-requests" element={<div>Placeholder SPD & DPD Saya</div>} />
         <Route path="/approvals" element={
           <ProtectedRoute roles={['team_manager', 'manager', 'general_manager']}>
             <Approvals />
+          </ProtectedRoute>
+        } />
+        <Route path="/dpd-approvals" element={
+          <ProtectedRoute roles={['team_manager', 'manager', 'general_manager']}>
+            <DpdApprovals />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute requireRole="general_manager">
+            <Settings />
           </ProtectedRoute>
         } />
         <Route path="/delegations" element={
@@ -49,6 +65,11 @@ function AppRoutes() {
             <Delegations />
           </ProtectedRoute>
         } />
+        
+        {/* DPD Routes - Milestone 6 */}
+        <Route path="/dpd/create" element={<DpdCreate />} />
+        <Route path="/dpd" element={<DpdList />} />
+        <Route path="/dpd/:id" element={<DpdDetail />} />
         
         {/* Master Data Routes - Super Admin Only */}
         <Route path="/departments" element={

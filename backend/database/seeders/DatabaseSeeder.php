@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MasterDataSeeder::class,
             DpdExpenseCategoriesSeeder::class,
+            TestDataSeeder::class,
         ]);
     }
 }

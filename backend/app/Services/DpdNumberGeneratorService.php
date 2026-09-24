@@ -4,34 +4,35 @@ namespace App\Services;
 
 use App\Models\Dpd;
 use App\Models\Spd;
+use Illuminate\Support\Facades\DB;
 
 class DpdNumberGeneratorService
 {
     public function generateNumber(Dpd $dpd): string
     {
-        // Pola serupa SPD: DPD-{TAHUN}-{NO_URUT}
-        // Reset per tahun, kode departemen diambil dari SPD terkait
+        $year = now()->year;
+        $deptCode = 'UNK';
 
-        $today = now();
-        $year = $today->year;
+        if ($dpd->spd) {
+            $dpd->spd->load('department');
+            $deptCode = $dpd->spd->department?->code ?? 'UNK';
+        }
 
-        // Ambil nomor terakhir dari DPD tahun ini
-        $lastDpd = Dpd::whereYear('created_at', $year)
-            ->orderBy('created_at', 'desc')
-            ->first();
+        $lastNumber = DB::table('dpds')
+            ->whereYear('created_at', $year)
+            ->where('dpd_number', 'like', "DPD/{$deptCode}/%/{$year}")
+            ->lockForUpdate()
+            ->value('dpd_number');
 
-        $lastNumber = $lastDpd ? (int) substr($lastDpd->dpd_number, 4) : 0;
-        $nextNumber = $lastNumber + 1;
+        if ($lastNumber) {
+            $parts = explode('/', $lastNumber);
+            $nextNumber = (int) end($parts) + 1;
+        } else {
+            $nextNumber = 1;
+        }
 
-        // Format: DPD-{tahun}-{no_urut}, misal: DPD-2026-001
-        $dpd->dpd_number = 'DPD-' . $year . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+        $dpd->dpd_number = sprintf('DPD/%s/%03d/%d', $deptCode, $nextNumber, $year);
 
         return $dpd->dpd_number;
-    }
-
-    public function getSubmissionDeadlineDays(): ?int
-    {
-        $days = AppSetting::get('dpd_submission_deadline_days');
-        return $days ? (int) $days : null;
     }
 }

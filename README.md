@@ -1,41 +1,41 @@
-# SPD & DPD System Skeleton
+# SPD & DPD System
 
-Sistem ini terdiri dari dua bagian terpisah: backend (Laravel 11) dan frontend (React + Vite). Keduanya sudah dikonfigurasi untuk saling terhubung menggunakan **Laravel Sanctum SPA Authentication**.
+Sistem manajemen **Surat Perjalanan Dinas (SPD)** dan **Deklarasi Perjalanan Dinas (DPD)** berbasis `Laravel 11 (API)` + `React (SPA + Vite)` + `MySQL (Laragon)`, menggunakan **Laravel Sanctum SPA Authentication**.
 
 ## Kebutuhan Sistem
-- PHP (minimal 8.2/8.3, direkomendasikan PHP 8.3 sesuai bawaan Laragon Anda)
+
+- PHP >= 8.2 (Laragon)
 - Composer
 - Node.js & npm
-- Laragon (untuk MySQL & web server lokal jika perlu)
+- MySQL (via Laragon)
 
 ---
 
-## 1. Persiapan Database (di Laragon)
+## 1. Persiapan Database (Laragon)
 
-1. Buka Laragon dan klik **Start All** (pastikan MySQL berjalan).
-2. Buka **HeidiSQL** atau **phpMyAdmin** (bawaan Laragon).
-3. Buat database baru bernama `spd_dpd_db` (tanpa password, user: `root`).
-4. Selesai. Struktur database akan dibuat otomatis oleh Laravel migration nantinya.
+1. Buka Laragon → **Start All**.
+2. Buka **HeidiSQL** / **phpMyAdmin**.
+3. Buat database: `spd_dpd_db` (user: `root`, password kosong).
+4. Struktur tabel dibuat otomatis oleh migration.
 
 ---
 
-## 2. Menjalankan Backend (Laravel 11)
-
-Buka terminal (bisa pakai bawaan Windows / VSCode) dan jalankan:
+## 2. Menjalankan Backend
 
 ```bash
 cd backend
-php artisan migrate
+php artisan migrate --seed
+php artisan storage:link
 php artisan serve
 ```
 
-*Catatan: `php artisan serve` akan menjalankan backend di `http://localhost:8000`. Jika menggunakan fitur auto virtual host Laragon (misal: `http://backend.test`), pastikan URL di `.env` frontend (`VITE_API_BASE_URL`) disesuaikan.*
+> `--seed` otomatis mengisi data master (roles, departments, expense categories) dan data uji (TestDataSeeder).
+
+Backend berjalan di `http://localhost:8000`.
 
 ---
 
-## 3. Menjalankan Frontend (React JS)
-
-Buka tab terminal baru:
+## 3. Menjalankan Frontend
 
 ```bash
 cd frontend
@@ -43,30 +43,43 @@ npm install
 npm run dev
 ```
 
-*Ini akan menjalankan React dev server di `http://localhost:5173`.*
+Frontend berjalan di `http://localhost:5173`.
 
 ---
-
-## Tentang Konfigurasi yang Sudah Disiapkan
-
-- **Backend (`backend/.env` & `config/cors.php`)**:
-  - `SESSION_DOMAIN=localhost`
-  - `SANCTUM_STATEFUL_DOMAINS=localhost:5173,127.0.0.1:5173`
-  - CORS sudah diizinkan (credentials: `true`) untuk `localhost:5173`.
-  
-- **Frontend (`frontend/src/services/api.js`)**:
-  - Axios instance otomatis melampirkan *cookies* (`withCredentials: true`) yang diperlukan untuk autentikasi Sanctum SPA.
-  - Endpoint base diatur melalui file `frontend/.env` (`VITE_API_BASE_URL`).
-
----
-
-## Alur Singkat SPA Auth Sanctum (Untuk Nanti)
-Saat membuat fitur login, frontend harus hit endpoint ini secara berurutan:
-1. `GET /sanctum/csrf-cookie` (untuk mendapatkan CSRF token di cookie).
-2. `POST /api/login` (mengirim kredensial username/password).
-3. Jika sukses, request berikutnya ke endpoint berpelindung middleware `auth:sanctum` otomatis berjalan tanpa perlu menyisipkan token secara manual di header (berbasis cookie).
 
 ## Akun Login Default
-- **Email:** `superadmin@example.com`
-- **Password:** `password`
-- **Role:** Super Admin (Akses penuh Master Data)
+
+| Email | Password | Role |
+|---|---|---|
+| `superadmin@example.com` | `password` | super_admin |
+| `gm@company.com` | `password` | general_manager |
+| `andi.manager@company.com` | `password` | manager (IT) |
+| `sari.manager@company.com` | `password` | manager (IT) |
+| `raka.admin@company.com` | `password` | admin_departemen (IT) |
+| `bagus.tm@company.com` | `password` | team_manager (IT) |
+| `fajar.user@company.com` | `password` | user (IT) |
+| `kiki.user@company.com` | `password` | user (FIN) |
+
+Semua password: `password`.
+
+Data testing lengkap (departemen, hierarki employee, sample SPD, sample DPD, delegasi) sudah dibuat oleh `TestDataSeeder`.
+
+---
+
+## Modul & Role
+
+| Modul | Endpoint | Role yang Boleh |
+|---|---|---|
+| Login / Logout | `/api/login`, `/api/logout` | Semua |
+| Dashboard | `/api/dashboard` | Semua (konten adaptif per role) |
+| Master Data | `/api/master/*` | super_admin |
+| SPD (CRUD + approval) | `/api/spd/*` | admin_departemen, approver |
+| DPD (CRUD + approval) | `/api/dpd/*` | user, admin_departemen, approver |
+| Delegasi | `/api/delegations/*` | general_manager |
+| Pengaturan | `/api/settings/*` | general_manager |
+
+---
+
+## Lisensi & Catatan
+
+Internal testing/UAT build. Alur bisnis detail ada di `docs/ALUR-BISNIS.md`.

@@ -57,6 +57,23 @@ class SpdApprovalController extends Controller
         return response()->json($approvals);
     }
 
+    public function approvedSpds(Request $request)
+    {
+        $user = $request->user();
+        $employee = $user->employee;
+
+        $query = \App\Models\Spd::with(['department', 'employees.employee'])
+            ->where('status', 'approved');
+
+        if ($employee && $employee->role->name !== 'super_admin') {
+            $query->whereHas('employees', function ($q) use ($employee) {
+                $q->where('employee_id', $employee->id);
+            });
+        }
+
+        return response()->json($query->orderByDesc('created_at')->get());
+    }
+
     public function approve(Request $request, SpdApprovalChain $chain)
     {
         try {

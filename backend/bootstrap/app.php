@@ -22,6 +22,31 @@ return Application::configure(basePath: dirname(__DIR__))
             //
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions) {
-        //
+->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Validasi gagal.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+        });
+
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Resource tidak ditemukan.'], 404);
+            }
+        });
+
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'Forbidden. Akses ditolak.'], 403);
+            }
+        });
     })->create();
