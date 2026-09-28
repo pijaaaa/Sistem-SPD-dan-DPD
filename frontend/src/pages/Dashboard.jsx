@@ -87,11 +87,13 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <span className="text-sm text-gray-500">
-          Halo, {user?.name || data.role}
-        </span>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          Sistem Pengumpulan Media SPD & DPD
+        </h1>
+        <p className="text-gray-600 flex items-center gap-2">
+          Selamat Pagi, <span className="font-semibold text-primary-600">{user?.name || data.role}</span> 👋
+        </p>
       </div>
       {renderByRole()}
     </div>

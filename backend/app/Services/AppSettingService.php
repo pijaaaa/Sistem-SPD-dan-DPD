@@ -10,11 +10,15 @@ use Illuminate\Support\Facades\Auth;
 class AppSettingService
 {
     const CACHE_PREFIX = 'app_setting_';
-    const CACHE_TTL = 3600;
+
+    protected function getCacheTtl(): int
+    {
+        return (int) config('cache.app_settings_ttl', 3600);
+    }
 
     public function get(string $key, $default = null)
     {
-        return Cache::remember(self::CACHE_PREFIX . $key, self::CACHE_TTL, function () use ($key, $default) {
+        return Cache::remember(self::CACHE_PREFIX . $key, $this->getCacheTtl(), function () use ($key, $default) {
             return AppSetting::get($key, $default);
         });
     }

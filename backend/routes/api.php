@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\CaptchaController;
 use App\Http\Controllers\API\Master\RoleController;
 use App\Http\Controllers\API\Master\RoleHierarchyController;
 use App\Http\Controllers\API\Master\DepartmentController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\API\SpdController;
 use App\Http\Controllers\API\Settings\AppSettingController;
 use App\Http\Controllers\API\DashboardController;
 
+Route::get('/captcha', [CaptchaController::class, 'generate']);
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
 Route::middleware('auth:sanctum')->group(function () {

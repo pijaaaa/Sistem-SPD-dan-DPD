@@ -104,4 +104,16 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_cache_'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | App Settings Cache TTL
+    |--------------------------------------------------------------------------
+    |
+    | Cache time-to-live for application settings in seconds.
+    | Default: 3600 (1 hour)
+    |
+    */
+
+    'app_settings_ttl' => env('APP_SETTINGS_CACHE_TTL', 3600),
+
 ];

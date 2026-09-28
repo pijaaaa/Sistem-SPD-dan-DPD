@@ -17,7 +17,6 @@ export default function DpdCreate() {
 const {
     data: approvedSpds,
     isLoading: spdsLoading,
-    isError: spdsError,
   } = useQuery({
     queryKey: ['approved-spds'],
     queryFn: async () => (await api.get('/api/spd/approved')).data,

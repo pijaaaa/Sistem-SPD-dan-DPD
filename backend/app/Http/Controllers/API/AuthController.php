@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class AuthController extends Controller
 {
@@ -14,9 +15,25 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required'],
+            'captcha' => ['required', 'string'],
+            'captcha_key' => ['required', 'string'],
         ]);
 
-        if (Auth::attempt($credentials)) {
+        $captchaKey = $request->captcha_key;
+        $captchaCode = Cache::get($captchaKey);
+
+        if (!$captchaCode) {
+            return response()->json(['message' => 'Kode keamanan kadaluarsa. Silakan refresh.'], 422);
+        }
+
+        if (strtoupper($request->captcha) !== $captchaCode) {
+            Cache::forget($captchaKey);
+            return response()->json(['message' => 'Kode keamanan tidak sesuai.'], 422);
+        }
+
+        Cache::forget($captchaKey);
+
+        if (Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
             $request->session()->regenerate();
 
             return response()->json($this->serializeUser(Auth::user()));

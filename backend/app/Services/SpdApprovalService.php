@@ -141,7 +141,7 @@ class SpdApprovalService
 
     protected function checkSpdStatus(Spd $spd): void
     {
-        $spd->load('employees');
+        $spd->load(['employees.approvalChains', 'employees.employee.role']);
 
         $allApproved = true;
 
@@ -155,7 +155,7 @@ class SpdApprovalService
                 continue;
             }
 
-            $chains = SpdApprovalChain::where('spd_employee_id', $se->id)->get();
+            $chains = $se->approvalChains;
 
             if ($chains->isEmpty()) {
                 continue;
