@@ -19,6 +19,7 @@ import Dashboard from './pages/Dashboard';
 import SpdList from './pages/SpdList';
 import SpdCreate from './pages/SpdCreate';
 import SpdDetail from './pages/SpdDetail';
+import MyRequests from './pages/MyRequests';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,10 +42,12 @@ function AppRoutes() {
         <Route path="/" element={<DashboardPlaceholder />} />
         
         {/* SPD Routes - Milestone 3 */}
-        <Route path="/spd/create" element={<SpdCreate />} />
+        <Route path="/spd/create" element={
+          <ProtectedRoute roles={['user', 'team_manager', 'manager']}><SpdCreate /></ProtectedRoute>
+        } />
         <Route path="/spd" element={<SpdList />} />
         <Route path="/spd/:id" element={<SpdDetail />} />
-        <Route path="/my-requests" element={<div>Placeholder SPD & DPD Saya</div>} />
+         <Route path="/my-requests" element={<MyRequests />} />
         <Route path="/approvals" element={
           <ProtectedRoute roles={['team_manager', 'manager', 'general_manager']}>
             <Approvals />

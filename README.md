@@ -51,14 +51,11 @@ Frontend berjalan di `http://localhost:5173`.
 
 | Email | Password | Role |
 |---|---|---|
-| `superadmin@example.com` | `password` | super_admin |
-| `gm@company.com` | `password` | general_manager |
-| `andi.manager@company.com` | `password` | manager (IT) |
-| `sari.manager@company.com` | `password` | manager (IT) |
-| `raka.admin@company.com` | `password` | admin_departemen (IT) |
-| `bagus.tm@company.com` | `password` | team_manager (IT) |
-| `fajar.user@company.com` | `password` | user (IT) |
-| `kiki.user@company.com` | `password` | user (FIN) |
+| `superadmin@example.com` | `password` | super_admin (IT) |
+| `gm@company.com` | `password` | general_manager (company-wide) |
+| `finance.mgr@company.com` | `password` | manager (FINANCE & ICT) |
+| `finance.tm@company.com` | `password` | team_manager (FINANCE & ICT) |
+| `finance.staff1@company.com` | `password` | user (FINANCE & ICT) |
 
 Semua password: `password`.
 
@@ -73,8 +70,8 @@ Data testing lengkap (departemen, hierarki employee, sample SPD, sample DPD, del
 | Login / Logout | `/api/login`, `/api/logout` | Semua |
 | Dashboard | `/api/dashboard` | Semua (konten adaptif per role) |
 | Master Data | `/api/master/*` | super_admin |
-| SPD (CRUD + approval) | `/api/spd/*` | admin_departemen, approver |
-| DPD (CRUD + approval) | `/api/dpd/*` | user, admin_departemen, approver |
+| SPD (CRUD + approval) | `/api/spd/*` | user, team_manager, manager, approver |
+| DPD (CRUD + approval) | `/api/dpd/*` | user, team_manager, manager, approver |
 | Delegasi | `/api/delegations/*` | general_manager |
 | Pengaturan | `/api/settings/*` | general_manager |
 

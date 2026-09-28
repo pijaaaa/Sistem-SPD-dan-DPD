@@ -33,12 +33,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/approval/{chain}/reject', [SpdApprovalController::class, 'reject']);
     });
 
-    Route::prefix('master')->middleware(['role:super_admin'])->group(function () {
-        Route::get('/roles', [RoleController::class, 'index']);
-        Route::get('/role-hierarchies', [RoleHierarchyController::class, 'index']);
-        
-        Route::apiResource('departments', DepartmentController::class);
-        Route::apiResource('employees', EmployeeController::class);
+    Route::prefix('master')->group(function () {
+        // GET index terbuka untuk semua user ter-otentikasi
+        // (dibutuhkan formulir SPD untuk dropdown departments & employees).
+        // Penulisan (store/update/destroy) & role-only list hanya untuk super_admin.
+        Route::get('/departments', [DepartmentController::class, 'index']);
+        Route::get('/employees', [EmployeeController::class, 'index']);
+
+        Route::middleware(['role:super_admin'])->group(function () {
+            Route::get('/roles', [RoleController::class, 'index']);
+            Route::get('/role-hierarchies', [RoleHierarchyController::class, 'index']);
+
+            Route::apiResource('departments', DepartmentController::class)->except(['index', 'show']);
+            Route::apiResource('employees', EmployeeController::class)->except(['index', 'show']);
+        });
     });
 
     Route::prefix('delegations')->middleware(['role:general_manager'])->group(function () {

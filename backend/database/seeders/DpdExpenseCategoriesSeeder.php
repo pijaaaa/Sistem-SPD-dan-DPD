@@ -17,7 +17,10 @@ class DpdExpenseCategoriesSeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            DpdExpenseCategory::create($category);
+            DpdExpenseCategory::firstOrCreate(
+                ['code' => $category['code']],
+                ['name' => $category['name'], 'description' => $category['description']]
+            );
         }
     }
 }

@@ -11,7 +11,6 @@ use App\Services\SpdNumberGeneratorService;
 use App\Services\SpdApprovalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 
 class SpdController extends Controller
 {
@@ -57,20 +56,17 @@ class SpdController extends Controller
             return response()->json(['message' => 'User tidak memiliki data employee.'], 403);
         }
 
-        // Cek hak akses: admin_departemen atau super_admin boleh membuat SPD
-        $allowedRoles = ['admin_departemen', 'super_admin'];
+        $allowedRoles = ['user', 'team_manager', 'manager'];
         if (!in_array($employee->role->name, $allowedRoles)) {
             return response()->json([
-                'message' => 'Hanya admin departemen yang dapat membuat SPD.'
+                'message' => 'Anda tidak memiliki izin untuk membuat SPD.'
             ], 403);
         }
 
-        $spd = DB::transaction(function () use ($validated, $request) {
-            // Hitung is_cross_department: apakah semua peserta berasal dari departemen yang sama?
+        $spd = DB::transaction(function () use ($validated, $employee) {
             $isCrossDepartment = false;
             $departmentIds = [];
             $employeeIds = array_column($validated['employees'], 'employee_id');
-
             $employees = \App\Models\Employee::whereIn('id', $employeeIds)->get();
             foreach ($employees as $emp) {
                 $departmentIds[] = $emp->department_id;
@@ -84,7 +80,7 @@ class SpdController extends Controller
                 'end_date' => $validated['end_date'],
                 'status' => 'pending',
                 'is_cross_department' => $isCrossDepartment,
-                'main_department_id' => $validated['main_department_id'],
+                'main_department_id' => $employee->department_id ?? $validated['main_department_id'],
             ]);
 
             foreach ($validated['employees'] as $empData) {
@@ -98,7 +94,6 @@ class SpdController extends Controller
 
             $spd->refresh();
 
-            // Generate approval chain (M4 logic)
             $this->approvalService->generateApprovalChain($spd);
 
             return $spd;
@@ -109,7 +104,7 @@ class SpdController extends Controller
 
     public function show(Spd $spd)
     {
-        $spd->load(['department', 'employees.employee.user', 'approvalChains.approver.user', 'approvalLogs']);
+        $spd->load(['department', 'employees.employee.user', 'employees.employee.role', 'approvalChains.approver.user', 'approvalChains.spdEmployee.employee']);
 
         return response()->json($spd);
     }

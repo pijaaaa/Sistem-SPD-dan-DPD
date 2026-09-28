@@ -15,12 +15,12 @@ export default function MainLayout() {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/', roles: ['super_admin', 'admin_departemen', 'user', 'team_manager', 'manager', 'general_manager'] },
-    { name: 'Buat SPD', path: '/spd/create', roles: ['admin_departemen'] },
-    { name: 'SPD & DPD Saya', path: '/my-requests', roles: ['user', 'team_manager', 'manager', 'general_manager', 'admin_departemen'] },
+    { name: 'Dashboard', path: '/', roles: ['super_admin', 'user', 'team_manager', 'manager', 'general_manager'] },
+    { name: 'Buat SPD', path: '/spd/create', roles: ['user', 'team_manager', 'manager'] },
+    { name: 'SPD & DPD Saya', path: '/my-requests', roles: ['user', 'team_manager', 'manager', 'general_manager'] },
     { name: 'Approval SPD', path: '/approvals', roles: ['team_manager', 'manager', 'general_manager'] },
     { name: 'Approval DPD', path: '/dpd-approvals', roles: ['team_manager', 'manager', 'general_manager'] },
-    { name: 'DPD', path: '/dpd', roles: ['user', 'team_manager', 'manager', 'general_manager', 'admin_departemen'] },
+    { name: 'DPD', path: '/dpd', roles: ['user', 'team_manager', 'manager', 'general_manager'] },
     { name: 'Delegasi', path: '/delegations', roles: ['general_manager'] },
     { name: 'Pengaturan', path: '/settings', roles: ['general_manager'] },
     { name: 'Master Data (Dept)', path: '/departments', roles: ['super_admin'] },

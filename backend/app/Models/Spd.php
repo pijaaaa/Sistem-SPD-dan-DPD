@@ -9,6 +9,12 @@ class Spd extends Model
 {
     protected $fillable = ['spd_number', 'destination', 'start_date', 'end_date', 'purpose', 'status', 'is_cross_department', 'main_department_id'];
 
+    protected $casts = [
+        'start_date' => 'date',
+        'end_date' => 'date',
+        'is_cross_department' => 'boolean',
+    ];
+
     protected static function boot()
     {
         parent::boot();

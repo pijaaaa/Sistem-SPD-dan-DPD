@@ -2,58 +2,69 @@
 
 namespace App\Traits;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Employee;
+use App\Models\Role;
 
 trait ApprovalChainGenerator
 {
-    public function generateApprovalChainForEmployee(Model $approvable, ?int $approvableEmployeeId, $employee)
+    protected function resolveApprovers(Employee $employee): array
     {
-        $currentRole = $employee->role;
-        $currentEmployee = $employee;
-        $levelOrder = 1;
+        $employee->load('role', 'department');
 
-        while ($currentRole && $currentRole->roleHierarchy && $currentRole->roleHierarchy->next_approver_role_id) {
-            $nextRole = $currentRole->roleHierarchy->nextApproverRole;
-            
-            $supervisor = $currentEmployee->supervisor;
-            while ($supervisor && $supervisor->role_id !== $nextRole->id) {
-                $supervisor = $supervisor->supervisor;
-            }
+        $roleName = $employee->role->name;
+        $deptId = $employee->department_id;
 
-            if ($supervisor) {
-                $this->createApprovalChainRecord($approvable, $approvableEmployeeId, $supervisor->id, $levelOrder);
-                $levelOrder++;
-                $currentRole = $nextRole;
-                $currentEmployee = $supervisor;
-            } else {
-                break;
-            }
+        $tmRoleId = Role::where('name', 'team_manager')->value('id');
+        $mgrRoleId = Role::where('name', 'manager')->value('id');
+        $gmRoleId = Role::where('name', 'general_manager')->value('id');
+
+        $approvers = [];
+
+        if ($roleName === 'user') {
+            $tm = Employee::where('role_id', $tmRoleId)->where('department_id', $deptId)->first();
+            $mgr = Employee::where('role_id', $mgrRoleId)->where('department_id', $deptId)->first();
+            $gm = Employee::where('role_id', $gmRoleId)->first();
+
+            if ($tm) $approvers[] = $tm;
+            if ($mgr) $approvers[] = $mgr;
+            if ($gm) $approvers[] = $gm;
+        } elseif ($roleName === 'team_manager') {
+            $mgr = Employee::where('role_id', $mgrRoleId)->where('department_id', $deptId)->first();
+            $gm = Employee::where('role_id', $gmRoleId)->first();
+
+            if ($mgr) $approvers[] = $mgr;
+            if ($gm) $approvers[] = $gm;
+        } elseif ($roleName === 'manager') {
+            $gm = Employee::where('role_id', $gmRoleId)->first();
+            if ($gm) $approvers[] = $gm;
         }
+
+        return $approvers;
     }
 
-    protected function createApprovalChainRecord(Model $approvable, ?int $approvableEmployeeId, int $approverEmployeeId, int $levelOrder)
+    protected function createApprovalChainRecord($approvable, ?int $approvableEmployeeId, int $approverEmployeeId, int $levelOrder): void
     {
-        $chainClass = $this->getChainClass($approvable);
         $data = [
             'approver_employee_id' => $approverEmployeeId,
             'level_order' => $levelOrder,
+            'status' => 'pending',
         ];
 
-        if ($approvableEmployeeId) {
-            $data[$this->getEmployeeForeignKey()] = $approvableEmployeeId;
+        if ($approvableEmployeeId && $this->getEmployeeForeignKey($approvable) === 'spd_employee_id') {
+            $data['spd_employee_id'] = $approvableEmployeeId;
         }
 
         $approvable->approvalChains()->create($data);
     }
 
-    protected function getChainClass(Model $approvable)
+    protected function getEmployeeForeignKey($approvable): string
+    {
+        return 'spd_employee_id';
+    }
+
+    protected function getChainClass($approvable): string
     {
         $class = class_basename($approvable);
         return "App\\Models\\{$class}ApprovalChain";
-    }
-
-    protected function getEmployeeForeignKey()
-    {
-        return 'spd_employee_id';
     }
 }

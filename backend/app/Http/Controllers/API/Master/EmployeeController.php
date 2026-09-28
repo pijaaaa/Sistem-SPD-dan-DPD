@@ -14,7 +14,7 @@ class EmployeeController extends Controller
 {
     public function index()
     {
-        $employees = Employee::with(['user', 'role', 'department', 'supervisor'])->get();
+        $employees = Employee::with(['user', 'role', 'department'])->get();
         return response()->json($employees);
     }
 
@@ -22,7 +22,7 @@ class EmployeeController extends Controller
     {
         $employee = DB::transaction(function () use ($request) {
             $data = $request->validated();
-            
+
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -33,30 +33,28 @@ class EmployeeController extends Controller
                 'user_id' => $user->id,
                 'role_id' => $data['role_id'],
                 'department_id' => $data['department_id'],
-                'supervisor_id' => $data['supervisor_id'] ?? null,
                 'nip' => $data['nip'],
                 'name' => $data['name'],
                 'position' => $data['position'] ?? null,
             ]);
         });
-        
-        return response()->json($employee->load(['user', 'role', 'department', 'supervisor']), 201);
+
+        return response()->json($employee->load(['user', 'role', 'department']), 201);
     }
 
     public function show(Employee $employee)
     {
-        return response()->json($employee->load(['user', 'role', 'department', 'supervisor']));
+        return response()->json($employee->load(['user', 'role', 'department']));
     }
 
     public function update(UpdateEmployeeRequest $request, Employee $employee)
     {
         $employee = DB::transaction(function () use ($request, $employee) {
             $data = $request->validated();
-            
+
             $employee->update([
                 'role_id' => $data['role_id'],
                 'department_id' => $data['department_id'],
-                'supervisor_id' => $data['supervisor_id'] ?? null,
                 'nip' => $data['nip'],
                 'name' => $data['name'],
                 'position' => $data['position'] ?? null,
@@ -72,7 +70,7 @@ class EmployeeController extends Controller
             return $employee;
         });
 
-        return response()->json($employee->load(['user', 'role', 'department', 'supervisor']));
+        return response()->json($employee->load(['user', 'role', 'department']));
     }
 
     public function destroy(Employee $employee)
@@ -82,7 +80,7 @@ class EmployeeController extends Controller
             $employee->delete();
             $user->delete();
         });
-        
+
         return response()->json(null, 204);
     }
 }

@@ -29,7 +29,6 @@ class DashboardController extends Controller
         return match ($roleName) {
             'super_admin' => $this->superAdminDashboard(),
             'general_manager' => $this->generalManagerDashboard($employee),
-            'admin_departemen' => $this->adminDepartemenDashboard($employee),
             default => $this->userDashboard($employee),
         };
     }
@@ -88,46 +87,6 @@ class DashboardController extends Controller
         });
     }
 
-    private function adminDepartemenDashboard(Employee $employee): array
-    {
-        $cacheKey = 'dashboard:admin:' . $employee->id;
-        $ttl = 300;
-
-        return Cache::remember($cacheKey, $ttl, function () use ($employee) {
-            $userStats = $this->getUserStats($employee);
-            $approvalStats = $this->getApprovalStats($employee);
-
-            $spdMonthly = Spd::selectRaw('MONTH(created_at) as month, COUNT(*) as count')
-                ->whereYear('created_at', now()->year)
-                ->whereHas('employees', fn($q) => $q->where('employee_id', $employee->id))
-                ->groupBy('month')
-                ->pluck('count', 'month');
-
-            $dpdMonthly = Dpd::selectRaw('MONTH(created_at) as month, COUNT(*) as count')
-                ->whereYear('created_at', now()->year)
-                ->where('employee_id', $employee->id)
-                ->groupBy('month')
-                ->pluck('count', 'month');
-
-            $monthlyChart = [];
-            for ($m = 1; $m <= 12; $m++) {
-                $monthlyChart[] = [
-                    'month' => $m,
-                    'month_name' => date('M', mktime(0, 0, 0, $m, 1)),
-                    'spd' => $spdMonthly->get($m, 0),
-                    'dpd' => $dpdMonthly->get($m, 0),
-                ];
-            }
-
-            return [
-                'role' => 'admin_departemen',
-                'user_stats' => $userStats,
-                'approvals' => $approvalStats,
-                'monthly_chart' => $monthlyChart,
-            ];
-        });
-    }
-
     private function userDashboard(Employee $employee): array
     {
         $cacheKey = 'dashboard:user:' . $employee->id;
@@ -179,29 +138,28 @@ class DashboardController extends Controller
             ->where('end_date', '>=', $today)
             ->pluck('delegator_id');
 
+        $approverIds = $activeDelegators->push($employee->id);
+
         $spdPending = SpdApprovalChain::where('status', 'pending')
-            ->where(function ($q) use ($employee, $activeDelegators) {
-                $q->where('approver_employee_id', $employee->id)
-                  ->orWhereIn('approver_employee_id', $activeDelegators);
-            })
-            ->where('level_order', 1)
-            ->orWhereDoesntHave('spd.approvalChains', function ($subQ) {
-                $subQ->whereColumn('spd_approval_chains.spd_id', 'spd_id')
-                     ->whereColumn('spd_approval_chains.level_order', '<', 'level_order')
-                     ->where('status', '!=', 'approved');
+            ->whereIn('approver_employee_id', $approverIds)
+            ->whereNotExists(function ($subQ) {
+                $subQ->selectRaw(1)
+                    ->from('spd_approval_chains as sac2')
+                    ->whereColumn('sac2.spd_id', 'spd_approval_chains.spd_id')
+                    ->whereColumn('sac2.spd_employee_id', 'spd_approval_chains.spd_employee_id')
+                    ->whereColumn('sac2.level_order', '<', 'spd_approval_chains.level_order')
+                    ->where('sac2.status', '!=', 'approved');
             })
             ->count();
 
         $dpdPending = DpdApprovalChain::where('status', 'pending')
-            ->where(function ($q) use ($employee, $activeDelegators) {
-                $q->where('approver_employee_id', $employee->id)
-                  ->orWhereIn('approver_employee_id', $activeDelegators);
-            })
-            ->where('level_order', 1)
-            ->orWhereDoesntHave('dpd.approvalChains', function ($subQ) {
-                $subQ->whereColumn('dpd_approval_chains.dpd_id', 'dpd_id')
-                     ->whereColumn('dpd_approval_chains.level_order', '<', 'level_order')
-                     ->where('status', '!=', 'approved');
+            ->whereIn('approver_employee_id', $approverIds)
+            ->whereNotExists(function ($subQ) {
+                $subQ->selectRaw(1)
+                    ->from('dpd_approval_chains as dac2')
+                    ->whereColumn('dac2.dpd_id', 'dpd_approval_chains.dpd_id')
+                    ->whereColumn('dac2.level_order', '<', 'dpd_approval_chains.level_order')
+                    ->where('dac2.status', '!=', 'approved');
             })
             ->count();
 

@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
-import { StatusBadge } from '../components/common/StatusBadge';
 
 export default function DpdCreate() {
   const queryClient = useQueryClient();
@@ -15,24 +14,36 @@ export default function DpdCreate() {
     queryFn: async () => (await api.get('/api/dpd/categories')).data,
   });
 
-  const { data: approvedSpds, isLoading: spdsLoading } = useQuery({
+const {
+    data: approvedSpds,
+    isLoading: spdsLoading,
+    isError: spdsError,
+  } = useQuery({
     queryKey: ['approved-spds'],
     queryFn: async () => (await api.get('/api/spd/approved')).data,
+    retry: 1,
   });
 
   const [spdId, setSpdId] = useState('');
+
   const [submissionDate, setSubmissionDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Auto-selekt SPD jika hanya ada 1 dan belum dipilih
+  useEffect(() => {
+    if (!spdId && approvedSpds && approvedSpds.length === 1) {
+      setSpdId(String(approvedSpds[0].id));
+    }
+  }, [approvedSpds, spdId]);
   const [reports, setReports] = useState([{ title: '', description: '', attachment: null }]);
   const [expenses, setExpenses] = useState([{ category_id: '', description: '', amount: '', expense_date: new Date().toISOString().split('T')[0], attachment: null }]);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const totalNominal = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
   const createMutation = useMutation({
     mutationFn: async (formData) => {
-      const res = await api.post('/api/dpd', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/api/dpd', formData);
       return res.data;
     },
     onSuccess: () => {
@@ -40,26 +51,42 @@ export default function DpdCreate() {
       navigate('/dpd');
     },
     onError: (err) => {
-      setError(err.response?.data?.message || 'Gagal membuat DPD');
+      const d = err.response?.data;
+      setError(d?.message || 'Gagal membuat DPD');
+      setFieldErrors(d?.errors || {});
     },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
+
+    if (!spdId) {
+      setError('SPD harus dipilih.');
+      return;
+    }
 
     const formData = new FormData();
     formData.append('spd_id', spdId);
     formData.append('submission_date', submissionDate);
 
-    reports.forEach((r, i) => {
+    const validReports = reports.filter((r) => r.title || r.description || r.attachment);
+    validReports.forEach((r, i) => {
       formData.append(`reports[${i}][title]`, r.title);
       if (r.description) formData.append(`reports[${i}][description]`, r.description);
       if (r.attachment) formData.append(`reports[${i}][attachment]`, r.attachment);
     });
 
-    expenses.forEach((e, i) => {
-      if (!e.description || !e.amount || !e.category_id) return;
+    const validExpenses = expenses.filter(
+      (e) => e.category_id && e.description && e.amount !== '' && e.amount !== null && e.amount !== undefined,
+    );
+    if (validExpenses.length === 0) {
+      setError('Minimal harus ada satu item nota / reimbursement yang lengkap.');
+      return;
+    }
+
+    validExpenses.forEach((e, i) => {
       formData.append(`expenses[${i}][category_id]`, e.category_id);
       formData.append(`expenses[${i}][description]`, e.description);
       formData.append(`expenses[${i}][amount]`, e.amount);
@@ -94,16 +121,28 @@ export default function DpdCreate() {
 
       {error && <div className="mb-4 bg-red-50 text-red-600 p-3 rounded">{error}</div>}
 
+      {Object.keys(fieldErrors).length > 0 && (
+        <div className="mb-4 bg-red-50 text-red-600 p-3 rounded">
+          <ul className="list-disc list-inside text-sm">
+            {Object.entries(fieldErrors).map(([key, val]) => (
+              <li key={key}>
+                {key}: {Array.isArray(val) ? val.join(', ') : val}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 space-y-4">
           <h3 className="text-lg font-semibold">Informasi Dasar</h3>
           <FormField
             label="SPD (Approved)"
             as="select"
-            value={spdId}
+            value={spdId ? String(spdId) : ''}
             onChange={(e) => setSpdId(e.target.value)}
-            options={approvedSpds?.map(s => ({ value: s.id, label: `${s.spd_number} - ${s.destination}` })) || []}
-            required
+            options={approvedSpds?.map((s) => ({ value: String(s.id), label: `${s.spd_number} - ${s.destination}` })) || []}
+            disabled={spdsLoading}
           />
           <FormField
             label="Tanggal Pengajuan"
@@ -123,7 +162,7 @@ export default function DpdCreate() {
             <div key={i} className="border rounded p-4 space-y-3 bg-gray-50">
               <div className="flex justify-between">
                 <span className="font-medium">Laporan #{i + 1}</span>
-                {reports.length > 1 && <Button variant="ghost" size="sm" variant="danger" onClick={() => removeReport(i)}>Hapus</Button>}
+                 {reports.length > 1 && <Button size="sm" variant="danger" onClick={() => removeReport(i)}>Hapus</Button>}
               </div>
               <FormField label="Judul" value={r.title} onChange={(e) => updateReport(i, 'title', e.target.value)} required />
               <FormField label="Deskripsi" as="textarea" value={r.description} onChange={(e) => updateReport(i, 'description', e.target.value)} rows={3} />
@@ -141,7 +180,7 @@ export default function DpdCreate() {
             <div key={i} className="border rounded p-4 space-y-3 bg-gray-50">
               <div className="flex justify-between">
                 <span className="font-medium">Item #{i + 1}</span>
-                {expenses.length > 1 && <Button variant="ghost" size="sm" variant="danger" onClick={() => removeExpense(i)}>Hapus</Button>}
+                 {expenses.length > 1 && <Button size="sm" variant="danger" onClick={() => removeExpense(i)}>Hapus</Button>}
               </div>
               <FormField
                 label="Kategori"

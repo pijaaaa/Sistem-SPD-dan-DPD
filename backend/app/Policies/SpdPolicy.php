@@ -24,19 +24,18 @@ class SpdPolicy
             ->where('employee_id', $user->employee_id)
             ->exists();
 
-        return $isParticipant || $user->employee?->role->name === 'admin_departemen';
+        return $isParticipant;
     }
 
     public function create(User $user): bool
     {
         $role = $user->employee?->role->name;
-        return in_array($role, ['admin_departemen', 'super_admin']);
+        return in_array($role, ['user', 'team_manager', 'manager', 'super_admin']);
     }
 
     public function update(User $user, Spd $spd): bool
     {
-        if ($user->employee?->role->name === 'super_admin') return true;
-        return false;
+        return $user->employee?->role->name === 'super_admin';
     }
 
     public function delete(User $user, Spd $spd): bool

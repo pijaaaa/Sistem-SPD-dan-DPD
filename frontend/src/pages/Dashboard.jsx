@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Card, StatGroup } from '../components/dashboard/StatCard';
-import MonthlyChart from '../components/dashboard/MonthlyChart';
 import PendingApprovalsCard from '../components/dashboard/PendingApprovalsCard';
 import { useAuth } from '../context/AuthContext';
 
@@ -36,21 +35,6 @@ const UserDashboard = ({ data }) => (
   </div>
 );
 
-const AdminDashboard = ({ data }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    <Card title="SPD Saya" value={data.user_stats.spd.total} icon="📄">
-      <StatGroup label="Status" data={data.user_stats.spd} />
-    </Card>
-    <Card title="DPD Saya" value={data.user_stats.dpd.total} icon="🧾">
-      <StatGroup label="Status" data={data.user_stats.dpd} />
-    </Card>
-    <PendingApprovalsCard data={data} role="approver" />
-    <div className="md:col-span-2 lg:col-span-3">
-      <MonthlyChart data={data.monthly_chart} />
-    </div>
-  </div>
-);
-
 const GeneralManagerDashboard = ({ data }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     <Card title="SPD Saya" value={data.user_stats.spd.total} icon="📄">
@@ -78,13 +62,15 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => (await api.get('/api/dashboard')).data,
     staleTime: 2 * 60 * 1000,
   });
 
   if (isLoading) return <div className="py-8 text-center text-gray-500">Memuat dashboard...</div>;
+
+  if (error) return <div className="text-center py-8 text-red-500">Gagal memuat dashboard: {error.response?.data?.message || error.message}</div>;
 
   if (!data) return <div className="text-center py-8">Gagal memuat dashboard.</div>;
 
@@ -94,8 +80,6 @@ export default function Dashboard() {
         return <SuperAdminDashboard data={data} />;
       case 'general_manager':
         return <GeneralManagerDashboard data={data} />;
-      case 'admin_departemen':
-        return <AdminDashboard data={data} />;
       default:
         return <UserDashboard data={data} />;
     }

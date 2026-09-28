@@ -6,12 +6,14 @@ import { Button } from '../components/common/Button';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
 import { FormField } from '../components/common/FormField';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useAuth } from '../context/AuthContext';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString('id-ID') : '-');
 
 export default function SpdDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [rejectChainId, setRejectChainId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -33,7 +35,15 @@ export default function SpdDetail() {
   if (isLoading) return <div className="py-8 text-center">Memuat detail SPD...</div>;
 
   const isApprover = (spd.status === 'pending' || spd.status === 'draft');
-  const pendingChains = (spd.approvalChains || []).filter(c => c.status === 'pending');
+  const myEmployeeId = user?.employee?.id;
+  const pendingChains = (spd.approvalChains || []).filter(c =>
+    c.status === 'pending' &&
+    c.approver_employee_id === myEmployeeId
+  );
+  const allChains = (spd.approvalChains || []).filter(c =>
+    c.spd_employee_id !== null &&
+    c.spd_employee_id === myEmployeeId
+  );
 
   const openReject = (chainId) => {
     setRejectChainId(chainId);
@@ -112,15 +122,15 @@ export default function SpdDetail() {
 
       {isApprover && pendingChains.length === 0 && (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Progress Persetujuan</h2>
+          <h2 className="text-lg font-semibold mb-4">Progress Persetujuan Anda</h2>
           <div>
-            {(spd.approvalChains || []).map(chain => (
+            {allChains.map(chain => (
               <div key={chain.id} className="border-b py-2 text-sm flex justify-between">
                 <span>Level {chain.level_order} — {chain.approver?.user?.name || '-'}</span>
                 <StatusBadge status={chain.status} />
               </div>
             ))}
-            {(spd.approvalChains || []).length === 0 && <p className="text-gray-500">Belum ada rantai approval.</p>}
+            {allChains.length === 0 && <p className="text-gray-500">Belum ada rantai approval.</p>}
           </div>
         </div>
       )}

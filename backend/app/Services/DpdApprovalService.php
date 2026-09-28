@@ -6,7 +6,7 @@ use App\Models\Dpd;
 use App\Models\DpdApprovalChain;
 use App\Models\Employee;
 use App\Models\Delegation;
-use App\Models\ApprovalLog;
+use App\Services\AppSettingService;
 use App\Traits\ApprovalChainGenerator;
 use Illuminate\Support\Facades\DB;
 
@@ -23,51 +23,35 @@ class DpdApprovalService
 
     public function generateApprovalChain(Dpd $dpd): void
     {
-        $dpd->load('spd.employees.employee.role');
+        $dpd->load('employee.role', 'employee.department');
 
-        if ($this->shouldAutoApprove($dpd)) {
-            $dpd->update(['status' => 'approved']);
+        $approvers = $this->resolveApprovers($dpd->employee);
+
+        if (empty($approvers)) {
+            $dpd->update(['status' => 'submitted']);
             return;
         }
 
-        $spd = $dpd->spd;
-        $highestEmployee = $this->getHighestRoleEmployee($spd);
-
-        if ($highestEmployee && $highestEmployee->role->name !== 'general_manager') {
-            $this->generateApprovalChainForEmployee($dpd, null, $highestEmployee);
+        $levelOrder = 1;
+        foreach ($approvers as $approver) {
+            DpdApprovalChain::create([
+                'dpd_id' => $dpd->id,
+                'approver_employee_id' => $approver->id,
+                'level_order' => $levelOrder,
+                'status' => 'pending',
+            ]);
+            $levelOrder++;
         }
 
-        $this->checkDpdStatus($dpd);
-    }
-
-    protected function shouldAutoApprove(Dpd $dpd): bool
-    {
-        $spd = $dpd->spd;
-        foreach ($spd->employees as $se) {
-            $employee = $se->employee;
-            if ($employee->role->name !== 'general_manager' && $employee->role->name !== 'super_admin') {
-                return false;
-            }
+        if ($dpd->status === 'draft') {
+            $dpd->update(['status' => 'submitted']);
         }
-        return true;
-    }
-
-    protected function getHighestRoleEmployee($spd): ?Employee
-    {
-        $highest = null;
-        $maxLevel = -1;
-        foreach ($spd->employees as $se) {
-            if ($se->employee->role->level > $maxLevel) {
-                $maxLevel = $se->employee->role->level;
-                $highest = $se->employee;
-            }
-        }
-        return $highest;
     }
 
     public function resolveActualApprover(Employee $originalApprover): Employee
     {
         $today = now()->toDateString();
+
         $delegation = Delegation::where('delegator_id', $originalApprover->id)
             ->where('is_active', true)
             ->where('start_date', '<=', $today)
@@ -83,15 +67,15 @@ class DpdApprovalService
         DB::transaction(function () use ($chain, $actor) {
             $originalApprover = $chain->approver;
             $actualApprover = $this->resolveActualApprover($originalApprover);
-            
+
             if ($actualApprover->id !== $actor->id) {
                 throw new \Exception("Unauthorized approver");
             }
 
             $chain->update(['status' => 'approved']);
-            
+
             $actedOnBehalfOf = ($actualApprover->id !== $originalApprover->id) ? $originalApprover->id : null;
-            
+
             $chain->logs()->create([
                 'approver_employee_id' => $actor->id,
                 'acted_on_behalf_of' => $actedOnBehalfOf,
@@ -108,15 +92,15 @@ class DpdApprovalService
         DB::transaction(function () use ($chain, $actor, $reason) {
             $originalApprover = $chain->approver;
             $actualApprover = $this->resolveActualApprover($originalApprover);
-            
+
             if ($actualApprover->id !== $actor->id) {
                 throw new \Exception("Unauthorized approver");
             }
 
             $chain->update(['status' => 'rejected']);
-            
+
             $actedOnBehalfOf = ($actualApprover->id !== $originalApprover->id) ? $originalApprover->id : null;
-            
+
             $chain->logs()->create([
                 'approver_employee_id' => $actor->id,
                 'acted_on_behalf_of' => $actedOnBehalfOf,
@@ -125,6 +109,10 @@ class DpdApprovalService
                 'rejection_reason' => $reason,
             ]);
 
+            DpdApprovalChain::where('dpd_id', $chain->dpd_id)
+                ->where('status', 'pending')
+                ->update(['status' => 'cancelled']);
+
             $chain->dpd->update(['status' => 'rejected']);
         });
     }
@@ -132,6 +120,7 @@ class DpdApprovalService
     protected function checkDpdStatus(Dpd $dpd): void
     {
         $chains = $dpd->approvalChains;
+
         if ($chains->isEmpty()) {
             return;
         }
@@ -156,19 +145,18 @@ class DpdApprovalService
             ->where('end_date', '>=', $today)
             ->pluck('delegator_id');
 
-        $approvals = DpdApprovalChain::with(['dpd.spd', 'dpd.employee.user', 'dpd.reports', 'dpd.expenses.category', 'approver.user'])
+        $approvals = DpdApprovalChain::with(['dpd.spd', 'dpd.employee.user', 'dpd.reports', 'dpd.expenses.category', 'approver.user', 'approver.role'])
             ->where('status', 'pending')
             ->where(function ($q) use ($employee, $activeDelegators) {
                 $q->where('approver_employee_id', $employee->id)
                   ->orWhereIn('approver_employee_id', $activeDelegators);
             })
-            ->where(function ($q) {
-                $q->where('level_order', 1)
-                  ->orWhereDoesntHave('dpd.approvalChains', function ($subQ) {
-                      $subQ->whereColumn('dpd_approval_chains.dpd_id', 'dpd_id')
-                           ->whereColumn('dpd_approval_chains.level_order', '<', 'level_order')
-                           ->where('status', '!=', 'approved');
-                  });
+            ->whereNotExists(function ($subQ) {
+                $subQ->selectRaw(1)
+                    ->from('dpd_approval_chains as dac2')
+                    ->whereColumn('dac2.dpd_id', 'dpd_approval_chains.dpd_id')
+                    ->whereColumn('dac2.level_order', '<', 'dpd_approval_chains.level_order')
+                    ->where('dac2.status', '!=', 'approved');
             })
             ->orderBy('level_order')
             ->get();
@@ -186,11 +174,11 @@ class DpdApprovalService
     public function validateDpdSubmission(Dpd $dpd): array
     {
         $warnings = [];
-        
+
         $spd = $dpd->spd;
         $tripDays = $spd->start_date->diffInDays($spd->end_date) + 1;
         $maxNominalPerDay = $this->appSettingService->getMaxNominalPerDay();
-        
+
         if ($maxNominalPerDay > 0 && $tripDays > 0) {
             $averageNominal = $dpd->total_nominal / $tripDays;
             if ($averageNominal > $maxNominalPerDay) {
@@ -210,5 +198,17 @@ class DpdApprovalService
         $deadlineDays = $this->appSettingService->getDpdSubmissionDeadlineDays();
         $deadline = $dpd->spd->end_date->addDays($deadlineDays);
         return now()->lte($deadline);
+    }
+
+    // Required by ApprovalChainGenerator trait for DPD
+    protected function getEmployeeForeignKey($approvable): string
+    {
+        return 'spd_employee_id';
+    }
+
+    protected function getChainClass($approvable): string
+    {
+        $class = class_basename($approvable);
+        return "App\\Models\\{$class}ApprovalChain";
     }
 }

@@ -12,10 +12,10 @@ export default function Employees() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
-  
+  const [serverError, setServerError] = useState('');
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
-  // Queries
   const { data: employees, isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => (await api.get('/api/master/employees')).data
@@ -29,18 +29,19 @@ export default function Employees() {
     queryFn: async () => (await api.get('/api/master/departments')).data
   });
 
-  // Mutations
   const mutation = useMutation({
     mutationFn: async (data) => {
-      // transform empty string to null for supervisor_id
-      const payload = { ...data, supervisor_id: data.supervisor_id || null };
+      const payload = { ...data, password: data.password || undefined };
       if (editingId) return api.put(`/api/master/employees/${editingId}`, payload);
       return api.post('/api/master/employees', payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['employees']);
       handleCloseModal();
-    }
+    },
+    onError: (err) => {
+      setServerError(err.response?.data?.message || err.response?.data?.errors?.role_id?.[0] || 'Gagal menyimpan data.');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -51,15 +52,18 @@ export default function Employees() {
     }
   });
 
-  const onSubmit = (data) => mutation.mutate(data);
+  const onSubmit = (data) => {
+    setServerError('');
+    mutation.mutate(data);
+  };
 
   const handleEdit = (emp) => {
     setEditingId(emp.id);
     reset({
       ...emp,
       email: emp.user?.email || '',
-      password: '', // blank on edit
-      supervisor_id: emp.supervisor_id || ''
+      password: '',
+      department_id: emp.department_id || '',
     });
     setIsModalOpen(true);
   };
@@ -67,6 +71,7 @@ export default function Employees() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
+    setServerError('');
     reset();
   };
 
@@ -76,7 +81,6 @@ export default function Employees() {
     { header: 'Posisi', accessor: 'position' },
     { header: 'Departemen', cell: (row) => row.department?.name || '-' },
     { header: 'Role', cell: (row) => row.role?.name || '-' },
-    { header: 'Supervisor', cell: (row) => row.supervisor?.name || '-' },
   ];
 
   return (
@@ -86,55 +90,49 @@ export default function Employees() {
         <Button onClick={() => setIsModalOpen(true)}>Tambah Karyawan</Button>
       </div>
 
-      <DataTable 
-        columns={columns} 
-        data={employees} 
+      <DataTable
+        columns={columns}
+        data={employees}
         isLoading={isLoading}
         onEdit={handleEdit}
         onDelete={(row) => setDeleteId(row.id)}
       />
 
-      <Modal 
-        isOpen={isModalOpen} 
+      <Modal
+        isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingId ? 'Edit Karyawan' : 'Tambah Karyawan'}
       >
+        {serverError && <div className="mb-3 bg-red-50 text-red-600 p-2 rounded text-sm">{serverError}</div>}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <FormField label="NIP" {...register('nip', { required: 'Wajib' })} error={errors.nip} />
           <FormField label="Nama Lengkap" {...register('name', { required: 'Wajib' })} error={errors.name} />
           <FormField label="Email" type="email" {...register('email', { required: 'Wajib' })} error={errors.email} />
-          
-          <FormField 
-            label="Password" 
-            type="password" 
-            {...register('password', { required: !editingId ? 'Wajib untuk user baru' : false })} 
-            error={errors.password} 
+
+          <FormField
+            label="Password"
+            type="password"
+            {...register('password', { required: !editingId ? 'Wajib untuk user baru' : false })}
+            error={errors.password}
             placeholder={editingId ? "Kosongkan jika tidak ubah" : ""}
           />
-          
+
           <FormField label="Posisi" {...register('position')} />
-          
-          <FormField 
-            as="select" 
-            label="Role" 
-            {...register('role_id', { required: 'Wajib' })} 
+
+          <FormField
+            as="select"
+            label="Role"
+            {...register('role_id', { required: 'Wajib' })}
             error={errors.role_id}
             options={[{value: '', label: 'Pilih Role...'}, ...roles.map(r => ({value: r.id, label: r.name}))]}
           />
-          
-          <FormField 
-            as="select" 
-            label="Departemen" 
-            {...register('department_id', { required: 'Wajib' })} 
+
+          <FormField
+            as="select"
+            label="Departemen"
+            {...register('department_id', { required: 'Wajib' })}
             error={errors.department_id}
             options={[{value: '', label: 'Pilih Departemen...'}, ...departments.map(d => ({value: d.id, label: d.name}))]}
-          />
-          
-          <FormField 
-            as="select" 
-            label="Supervisor" 
-            {...register('supervisor_id')} 
-            options={[{value: '', label: 'Tidak ada (Top level)'}, ...(employees || []).filter(e => e.id !== editingId).map(e => ({value: e.id, label: `${e.name} (${e.role?.name})`}))]}
           />
 
           <div className="flex justify-end gap-2 pt-4">

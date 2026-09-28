@@ -5,10 +5,12 @@ import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useAuth } from '../context/AuthContext';
 
 export default function SpdList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data: spds, isLoading } = useQuery({
@@ -23,6 +25,8 @@ export default function SpdList() {
     mutationFn: async (id) => api.delete(`/api/spd/${id}`),
     onSuccess: () => queryClient.invalidateQueries(['spds', statusFilter]),
   });
+
+  const canCreateSpd = hasRole('user') || hasRole('team_manager') || hasRole('manager');
 
   const columns = [
     { header: 'No. SPD', cell: row => row.spd_number },
@@ -51,7 +55,9 @@ export default function SpdList() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Daftar SPD</h1>
-        <Button variant="secondary" size="sm" onClick={() => navigate('/spd/create')}>Buat SPD</Button>
+        {canCreateSpd && (
+          <Button variant="secondary" size="sm" onClick={() => navigate('/spd/create')}>Buat SPD</Button>
+        )}
       </div>
 
       <div className="mb-4 space-x-2">

@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\Dpd;
+use App\Models\SpdEmployee;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class DpdPolicy
@@ -18,8 +19,14 @@ class DpdPolicy
     public function view(User $user, Dpd $dpd): bool
     {
         if ($user->employee?->role->name === 'super_admin') return true;
+
         if ($dpd->employee_id === $user->employee_id) return true;
-        return $user->employee?->role->name === 'admin_departemen';
+
+        $isParticipant = SpdEmployee::where('spd_id', $dpd->spd_id)
+            ->where('employee_id', $user->employee_id)
+            ->exists();
+
+        return $isParticipant;
     }
 
     public function create(User $user): bool

@@ -22,7 +22,7 @@ class StoreSpdRequest extends FormRequest
             'employees' => 'required|array|min:1',
             'employees.*.employee_id' => 'required|exists:employees,id',
             'employees.*.is_primary' => 'sometimes|boolean',
-            'main_department_id' => 'required|exists:departments,id',
+            'main_department_id' => 'nullable|exists:departments,id',
         ];
     }
 

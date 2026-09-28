@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
+import { useAuth } from '../context/AuthContext';
 
 export default function SpdCreate() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const { data: employees = [], isLoading: empLoading } = useQuery({
+  const { data: allEmployees = [], isLoading: empLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => (await api.get('/api/master/employees')).data,
   });
@@ -23,9 +25,7 @@ export default function SpdCreate() {
   const [purpose, setPurpose] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [deptId, setDeptId] = useState('');
   const [selectedEmployees, setSelectedEmployees] = useState([]);
-  const [primaryEmployee, setPrimaryEmployee] = useState('');
   const [error, setError] = useState('');
 
   const createMutation = useMutation({
@@ -40,36 +40,52 @@ export default function SpdCreate() {
     },
   });
 
+  const myEmployeeId = user?.employee?.id;
+
   useEffect(() => {
-    if (!startDate) return;
-    const e = document.getElementById('endDate')?.value;
-    if (e && e < startDate) setEndDate('');
+    if (startDate) {
+      const e = document.getElementById('endDate')?.value;
+      if (e && e < startDate) setEndDate('');
+    }
   }, [startDate]);
 
+  useEffect(() => {
+    if (myEmployeeId) {
+      const loggedInEmp = allEmployees.find(e => e.id === myEmployeeId);
+      if (loggedInEmp) {
+        setSelectedEmployees([myEmployeeId]);
+      }
+    }
+  }, [allEmployees, myEmployeeId]);
+
   const toggleEmployee = (empId) => {
+    if (empId === myEmployeeId) return;
     setSelectedEmployees(prev =>
       prev.includes(empId)
         ? prev.filter(id => id !== empId)
         : [...prev, empId]
     );
-    if (primaryEmployee === empId) setPrimaryEmployee('');
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!primaryEmployee) {
-      setError('Pilih satu pemohon utama.');
+    if (!myEmployeeId) {
+      setError('User tidak memiliki employee data.');
       return;
     }
     const empData = selectedEmployees.map(id => ({
       employee_id: id,
-      is_primary: id === primaryEmployee,
+      is_primary: id === myEmployeeId,
     }));
 
+    const loggedInEmp = allEmployees.find(emp => emp.id === myEmployeeId);
+    const mainDeptId = loggedInEmp?.department?.id || '';
+
     createMutation.mutate({
-      destination, purpose,
-      start_date: startDate, end_date: endDate,
-      main_department_id: deptId,
+      destination,
+      purpose,
+      start_date: startDate,
+      end_date: endDate,
       employees: empData,
     });
   };
@@ -94,41 +110,41 @@ export default function SpdCreate() {
             <FormField label="Tanggal Mulai" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
             <FormField label="Tanggal Selesai" type="date" id="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} min={startDate} required />
           </div>
-          <FormField
-            label="Departemen Pemohon Utama"
-            as="select"
-            value={deptId}
-            onChange={(e) => setDeptId(e.target.value)}
-            options={departments.map(d => ({ value: d.id, label: `${d.code} - ${d.name}` }))}
-            required
-          />
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 space-y-4">
-          <h3 className="text-lg font-semibold">Peserta (satu sebagai pemohon utama)</h3>
+          <h3 className="text-lg font-semibold">Peserta (pemohon utama: Anda)</h3>
           <div className="border rounded max-h-72 overflow-y-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
-                <tr><th className="px-3 py-2">Pilih</th><th className="px-3 py-2">Nama</th><th className="px-3 py-2">Role</th><th className="px-3 py-2">Dept</th><th className="px-3 py-2">UTAMA?</th></tr>
+                <tr><th className="px-3 py-2">Pilih</th><th className="px-3 py-2">Nama</th><th className="px-3 py-2">Role</th><th className="px-3 py-2">Dept</th><th className="px-3 py-2">UTAMA</th></tr>
               </thead>
               <tbody>
-                {employees.map(emp => (
-                  <tr key={emp.id} className="border-t">
-                    <td className="px-3 py-2"><input type="checkbox" checked={selectedEmployees.includes(emp.id)} onChange={() => toggleEmployee(emp.id)} /></td>
-                    <td className="px-3 py-2">{emp.user?.name || emp.name}</td>
-                    <td className="px-3 py-2">{emp.role?.name}</td>
-                    <td className="px-3 py-2">{emp.department?.code}</td>
-                    <td className="px-3 py-2">
-                      {selectedEmployees.includes(emp.id) && (
-                        <label className="flex items-center gap-1 text-xs"><input type="radio" name="primary" checked={primaryEmployee === emp.id} onChange={() => setPrimaryEmployee(emp.id)} required /> UTAMA</label>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {allEmployees.map(emp => {
+                  const isSelf = emp.id === myEmployeeId;
+                  return (
+                    <tr key={emp.id} className="border-t">
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedEmployees.includes(emp.id)}
+                          onChange={() => toggleEmployee(emp.id)}
+                          disabled={isSelf}
+                        />
+                      </td>
+                      <td className="px-3 py-2">{emp.user?.name || emp.name}</td>
+                      <td className="px-3 py-2">{emp.role?.name}</td>
+                      <td className="px-3 py-2">{emp.department?.code}</td>
+                      <td className="px-3 py-2">
+                        {isSelf && <span className="text-xs text-blue-600 font-bold">UTAMA ✓</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-gray-500">Terpilih: {selectedEmployees.length} karyawan</p>
+          <p className="text-xs text-gray-500">Terpilih: {selectedEmployees.length} karyawan (termasuk Anda sebagai pemohon utama)</p>
         </div>
 
         <div className="flex justify-end gap-2">
