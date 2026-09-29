@@ -3,9 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
+import { ActionButton } from '../components/common/ActionButton';
 import { Modal } from '../components/common/Modal';
 import { FormField } from '../components/common/FormField';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { Clock, AlertTriangle } from 'lucide-react';
 
 export default function DpdApprovals() {
   const queryClient = useQueryClient();
@@ -61,48 +63,73 @@ export default function DpdApprovals() {
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0);
 
   const columns = [
-    { header: 'No. DPD', cell: row => row.dpd?.dpd_number },
-    { header: 'SPD', cell: row => row.dpd?.spd?.spd_number },
+    { header: 'No. DPD', cell: row => <span className="font-medium text-gray-900">{row.dpd?.dpd_number}</span> },
+    { header: 'SPD', cell: row => <span className="text-sm text-gray-600">{row.dpd?.spd?.spd_number}</span> },
     { header: 'Tujuan', cell: row => row.dpd?.spd?.destination },
-    { header: 'Pengaju', cell: row => row.dpd?.employee?.user?.name },
-    { header: 'Total Nominal', cell: row => formatIDR(row.dpd?.total_nominal) },
-    { header: 'Level', accessor: 'level_order' },
+    { header: 'Pengaju', cell: row => <span className="text-sm">{row.dpd?.employee?.user?.name}</span> },
+    { header: 'Total Nominal', cell: row => <span className="font-medium text-emerald-700">{formatIDR(row.dpd?.total_nominal)}</span> },
+    { header: 'Level', cell: row => (
+      <span className="inline-flex items-center px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium">
+        Level {row.level_order}
+      </span>
+    )},
     {
       header: 'Konteks',
       cell: row => row.delegated_from
-        ? <span className="text-xs text-blue-700">Atas nama {row.delegated_from.user?.name}</span>
-        : <span className="text-xs text-gray-500">—</span>,
+        ? <span className="text-xs text-blue-700 font-medium">Atas nama {row.delegated_from.user?.name}</span>
+        : <span className="text-xs text-gray-400">—</span>,
     },
     { header: 'Warnings', cell: row => row.dpd?.warnings?.length > 0
-        ? <span className="text-yellow-700 bg-yellow-100 px-2 py-1 rounded text-xs">⚠ Melebihi plafon</span>
+        ? (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200">
+            <AlertTriangle className="w-3 h-3" />
+            Melebihi plafon
+          </span>
+        )
         : <span className="text-xs text-gray-400">-</span>
     },
   ];
 
   const actions = (row) => (
     <>
-      <Button size="sm" variant="ghost" onClick={() => setDetailChain(row)}>Detail</Button>
-      <Button
-        size="sm"
+      <ActionButton
+        icon="detail"
+        label="Detail"
+        variant="ghost"
+        onClick={() => setDetailChain(row)}
+      />
+      <ActionButton
+        icon="approve"
+        label="Approve"
+        variant="success"
         onClick={() => approveMutation.mutate(row.id)}
         disabled={approveMutation.isPending || rejectMutation.isPending}
-      >
-        Approve
-      </Button>
-      <Button
-        size="sm"
+        isLoading={approveMutation.isPending}
+      />
+      <ActionButton
+        icon="reject"
+        label="Reject"
         variant="danger"
         onClick={() => handleOpenRejectModal(row)}
         disabled={approveMutation.isPending || rejectMutation.isPending}
-      >
-        Reject
-      </Button>
+      />
     </>
   );
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Approval DPD Saya</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Approval DPD</h1>
+          <p className="text-sm text-gray-600 mt-1">DPD yang menunggu persetujuan Anda</p>
+        </div>
+        {approvals?.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <Clock className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-medium text-amber-900">{approvals.length} menunggu</span>
+          </div>
+        )}
+      </div>
 
       <DataTable
         columns={columns}
@@ -136,28 +163,33 @@ export default function DpdApprovals() {
         {detailChain && (
           <div className="space-y-4">
             {detailChain.dpd?.warnings?.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded text-sm">
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm">
                 {detailChain.dpd.warnings.map((w, i) => (
-                  <p key={i}>⚠ {w}</p>
+                  <p key={i} className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>{w}</span>
+                  </p>
                 ))}
               </div>
             )}
 
-            <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">SPD Terkait</p>
-              <p><strong>No. SPD:</strong> {detailChain.dpd?.spd?.spd_number}</p>
-              <p><strong>Tujuan:</strong> {detailChain.dpd?.spd?.destination}</p>
-              <p><strong>Periode:</strong> {detailChain.dpd?.spd?.start_date} s/d {detailChain.dpd?.spd?.end_date}</p>
-              <p><strong>Total Nominal:</strong> {formatIDR(detailChain.dpd?.total_nominal)}</p>
+            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              <p className="text-sm font-semibold text-gray-700">SPD Terkait</p>
+              <div className="text-sm space-y-1">
+                <p><span className="text-gray-600">No. SPD:</span> <span className="font-medium">{detailChain.dpd?.spd?.spd_number}</span></p>
+                <p><span className="text-gray-600">Tujuan:</span> <span className="font-medium">{detailChain.dpd?.spd?.destination}</span></p>
+                <p><span className="text-gray-600">Periode:</span> {detailChain.dpd?.spd?.start_date} s/d {detailChain.dpd?.spd?.end_date}</p>
+                <p><span className="text-gray-600">Total Nominal:</span> <span className="font-medium text-emerald-700">{formatIDR(detailChain.dpd?.total_nominal)}</span></p>
+              </div>
             </div>
 
             {detailChain.dpd?.reports?.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Laporan Kegiatan</p>
+                <p className="text-sm font-semibold text-gray-700 mb-2">Laporan Kegiatan</p>
                 {detailChain.dpd.reports.map((r, i) => (
-                  <div key={i} className="border rounded p-2 mb-2 bg-gray-50">
-                    <p className="font-medium">{r.title}</p>
-                    {r.description && <p className="text-sm text-gray-600">{r.description}</p>}
+                  <div key={i} className="border rounded-lg p-3 mb-2 bg-white">
+                    <p className="font-medium text-sm">{r.title}</p>
+                    {r.description && <p className="text-sm text-gray-600 mt-1">{r.description}</p>}
                   </div>
                 ))}
               </div>
@@ -165,14 +197,14 @@ export default function DpdApprovals() {
 
             {detailChain.dpd?.expenses?.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Item Nota</p>
+                <p className="text-sm font-semibold text-gray-700 mb-2">Item Nota</p>
                 {detailChain.dpd.expenses.map((e, i) => (
-                  <div key={i} className="border rounded p-2 mb-2 bg-gray-50 flex justify-between text-sm">
+                  <div key={i} className="border rounded-lg p-3 mb-2 bg-white flex justify-between text-sm">
                     <div>
                       <p className="font-medium">{e.category?.name || 'Kategori'}: {e.description}</p>
-                      <p className="text-gray-500">{e.expense_date}</p>
+                      <p className="text-gray-500 text-xs mt-1">{e.expense_date}</p>
                     </div>
-                    <span className="font-semibold">{formatIDR(e.amount)}</span>
+                    <span className="font-semibold text-emerald-700">{formatIDR(e.amount)}</span>
                   </div>
                 ))}
               </div>

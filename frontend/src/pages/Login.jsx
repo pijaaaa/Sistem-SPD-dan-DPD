@@ -16,7 +16,7 @@ export default function Login() {
   
   const LOGO_SIZE = 100;
   
-  const { register, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm();
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setValue, getValues } = useForm();
 
   const from = location.state?.from?.pathname || '/';
 
@@ -49,7 +49,6 @@ export default function Login() {
         captcha: data.captcha,
         captcha_key: captchaKey
       });
-      navigate(from, { replace: true });
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Login gagal. Silakan coba lagi.');
       loadCaptcha();
@@ -187,6 +186,15 @@ export default function Login() {
                   placeholder="Ketik 5 kode di atas"
                   onChange={(e) => {
                     e.target.value = e.target.value.toUpperCase();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const captchaValue = getValues('captcha');
+                      if (captchaValue && captchaValue.length >= 5) {
+                        handleSubmit(onSubmit)();
+                      }
+                    }
                   }}
                 />
               </div>

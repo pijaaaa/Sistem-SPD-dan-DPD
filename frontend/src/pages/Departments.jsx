@@ -6,9 +6,12 @@ import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
+import { useToast } from '../components/common/Toast';
+import { Plus } from 'lucide-react';
 
 export default function Departments() {
   const queryClient = useQueryClient();
+  const { show: showToast, ToastComponent } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -31,16 +34,27 @@ export default function Departments() {
       return api.post('/api/master/departments', data);
     },
     onSuccess: () => {
+      const message = editingId ? 'Departemen berhasil diperbarui' : 'Departemen berhasil ditambahkan';
+      showToast(message, 'success');
       queryClient.invalidateQueries(['departments']);
       handleCloseModal();
+    },
+    onError: (err) => {
+      const message = err.response?.data?.message || 'Gagal menyimpan departemen';
+      showToast(message, 'error');
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => api.delete(`/api/master/departments/${id}`),
     onSuccess: () => {
+      showToast('Departemen berhasil dihapus', 'success');
       queryClient.invalidateQueries(['departments']);
       setDeleteId(null);
+    },
+    onError: (err) => {
+      const message = err.response?.data?.message || 'Gagal menghapus departemen';
+      showToast(message, 'error');
     }
   });
 
@@ -65,9 +79,17 @@ export default function Departments() {
 
   return (
     <div>
+      {ToastComponent}
+      
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Departments</h1>
-        <Button onClick={() => setIsModalOpen(true)}>Tambah Departemen</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Departemen</h1>
+          <p className="text-sm text-gray-600 mt-1">Kelola departemen organisasi</p>
+        </div>
+        <Button onClick={() => setIsModalOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Tambah Departemen
+        </Button>
       </div>
 
       <DataTable 

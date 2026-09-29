@@ -28,12 +28,14 @@ export const AuthProvider = ({ children }) => {
     await api.get('/sanctum/csrf-cookie');
     const res = await api.post('/api/login', credentials);
     setUser(res.data);
+    window.location.href = '/';
     return res.data;
   };
 
   const logout = async () => {
     await api.post('/api/logout');
     setUser(null);
+    window.location.href = '/login';
   };
 
   const hasRole = (roleName) => {

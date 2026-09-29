@@ -6,9 +6,12 @@ import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
+import { useToast } from '../components/common/Toast';
+import { Plus } from 'lucide-react';
 
 export default function Employees() {
   const queryClient = useQueryClient();
+  const { show: showToast, ToastComponent } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -36,19 +39,28 @@ export default function Employees() {
       return api.post('/api/master/employees', payload);
     },
     onSuccess: () => {
+      const message = editingId ? 'Karyawan berhasil diperbarui' : 'Karyawan berhasil ditambahkan';
+      showToast(message, 'success');
       queryClient.invalidateQueries(['employees']);
       handleCloseModal();
     },
     onError: (err) => {
-      setServerError(err.response?.data?.message || err.response?.data?.errors?.role_id?.[0] || 'Gagal menyimpan data.');
+      const message = err.response?.data?.message || err.response?.data?.errors?.role_id?.[0] || 'Gagal menyimpan data.';
+      setServerError(message);
+      showToast(message, 'error');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => api.delete(`/api/master/employees/${id}`),
     onSuccess: () => {
+      showToast('Karyawan berhasil dihapus', 'success');
       queryClient.invalidateQueries(['employees']);
       setDeleteId(null);
+    },
+    onError: (err) => {
+      const message = err.response?.data?.message || 'Gagal menghapus karyawan';
+      showToast(message, 'error');
     }
   });
 
@@ -85,9 +97,17 @@ export default function Employees() {
 
   return (
     <div>
+      {ToastComponent}
+      
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Employees</h1>
-        <Button onClick={() => setIsModalOpen(true)}>Tambah Karyawan</Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Karyawan</h1>
+          <p className="text-sm text-gray-600 mt-1">Kelola data karyawan organisasi</p>
+        </div>
+        <Button onClick={() => setIsModalOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Tambah Karyawan
+        </Button>
       </div>
 
       <DataTable

@@ -24,12 +24,12 @@ export default function MainLayout() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
   };
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['super_admin', 'user', 'team_manager', 'manager', 'general_manager'] },
     { name: 'Buat SPD', path: '/spd/create', icon: FileText, roles: ['user', 'team_manager', 'manager'] },
+    { name: 'Daftar SPD', path: '/spd', icon: FolderOpen, roles: ['user', 'team_manager', 'manager', 'general_manager', 'super_admin'] },
     { name: 'SPD & DPD Saya', path: '/my-requests', icon: FolderOpen, roles: ['user', 'team_manager', 'manager', 'general_manager'] },
     { name: 'Approval SPD', path: '/approvals', icon: CheckSquare, roles: ['team_manager', 'manager', 'general_manager'] },
     { name: 'Approval DPD', path: '/dpd-approvals', icon: CheckSquare, roles: ['team_manager', 'manager', 'general_manager'] },
@@ -48,7 +48,7 @@ export default function MainLayout() {
     {
       title: 'MENU UTAMA',
       items: visibleNavItems.filter(item => 
-        ['Dashboard', 'Buat SPD', 'SPD & DPD Saya', 'Approval SPD', 'Approval DPD', 'DPD'].includes(item.name)
+        ['Dashboard', 'Buat SPD', 'Daftar SPD', 'SPD & DPD Saya', 'Approval SPD', 'Approval DPD', 'DPD'].includes(item.name)
       )
     },
     {

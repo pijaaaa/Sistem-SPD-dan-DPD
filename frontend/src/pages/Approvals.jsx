@@ -3,9 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
+import { ActionButton } from '../components/common/ActionButton';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
 import { FormField } from '../components/common/FormField';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { CheckCircle2, Clock } from 'lucide-react';
 
 export default function Approvals() {
   const queryClient = useQueryClient();
@@ -16,7 +18,7 @@ export default function Approvals() {
   const { data: approvals, isLoading } = useQuery({
     queryKey: ['my-approvals'],
     queryFn: async () => (await api.get('/api/spd/my-approvals')).data,
-    refetchInterval: 60000 // auto-refresh setiap 1 menit (karena krusial)
+    refetchInterval: 60000
   });
 
   const approveMutation = useMutation({
@@ -52,43 +54,58 @@ export default function Approvals() {
   };
 
   const columns = [
-    { header: 'No. SPD', cell: row => row.spd?.spd_number },
+    { header: 'No. SPD', cell: row => <span className="font-medium text-gray-900">{row.spd?.spd_number}</span> },
     { header: 'Tujuan', cell: row => row.spd?.destination },
-    { header: 'Tanggal', cell: row => `${row.spd?.start_date} s/d ${row.spd?.end_date}` },
+    { header: 'Tanggal', cell: row => <span className="text-sm">{`${row.spd?.start_date} s/d ${row.spd?.end_date}`}</span> },
     { header: 'Karyawan', cell: row => row.spdEmployee?.employee?.name || '(Grup/Semua)' },
-    { header: 'Level', accessor: 'level_order' },
+    { header: 'Level', cell: row => (
+      <span className="inline-flex items-center px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium">
+        Level {row.level_order}
+      </span>
+    )},
     {
       header: 'Konteks',
       cell: row => row.delegated_from
-        ? <span className="text-xs text-blue-700">Atas nama {row.delegated_from.name}</span>
-        : <span className="text-xs text-gray-500">—</span>,
+        ? <span className="text-xs text-blue-700 font-medium">Atas nama {row.delegated_from.name}</span>
+        : <span className="text-xs text-gray-400">—</span>,
     },
     { header: 'Status', cell: row => <StatusBadge status={row.status} /> },
   ];
 
   const actions = (row) => (
     <>
-      <Button 
-        size="sm" 
+      <ActionButton 
+        icon="approve"
+        label="Approve"
+        variant="success"
         onClick={() => approveMutation.mutate(row.id)}
         disabled={approveMutation.isPending || rejectMutation.isPending}
-      >
-        Approve
-      </Button>
-      <Button 
-        size="sm" 
-        variant="danger" 
+        isLoading={approveMutation.isPending}
+      />
+      <ActionButton 
+        icon="reject"
+        label="Reject"
+        variant="danger"
         onClick={() => handleOpenRejectModal(row)}
         disabled={approveMutation.isPending || rejectMutation.isPending}
-      >
-        Reject
-      </Button>
+      />
     </>
   );
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Approval SPD Saya</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Approval SPD</h1>
+          <p className="text-sm text-gray-600 mt-1">SPD yang menunggu persetujuan Anda</p>
+        </div>
+        {approvals?.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <Clock className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-medium text-amber-900">{approvals.length} menunggu</span>
+          </div>
+        )}
+      </div>
       
       <DataTable 
         columns={columns} 

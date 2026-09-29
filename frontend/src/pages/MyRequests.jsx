@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
+import { ActionButton } from '../components/common/ActionButton';
 import { StatusBadge } from '../components/common/StatusBadge';
 
 const periodeCell = (r) => {
@@ -39,14 +40,6 @@ export default function MyRequests() {
     { header: 'Tujuan', cell: (r) => r.destination },
     { header: 'Periode', cell: periodeCell },
     { header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
-    {
-      header: 'Aksi',
-      cell: (r) => (
-        <Button size="sm" onClick={() => navigate(`/spd/${r.id}`)}>
-          Detail
-        </Button>
-      ),
-    },
   ];
 
   const dpdColumns = [
@@ -60,15 +53,25 @@ export default function MyRequests() {
         ),
     },
     { header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
-    {
-      header: 'Aksi',
-      cell: (r) => (
-        <Button size="sm" onClick={() => navigate(`/dpd/${r.id}`)}>
-          Detail
-        </Button>
-      ),
-    },
   ];
+
+  const spdActions = (row) => (
+    <ActionButton
+      icon="detail"
+      label="Detail"
+      variant="primary"
+      onClick={() => navigate(`/spd/${row.id}`)}
+    />
+  );
+
+  const dpdActions = (row) => (
+    <ActionButton
+      icon="detail"
+      label="Detail"
+      variant="primary"
+      onClick={() => navigate(`/dpd/${row.id}`)}
+    />
+  );
 
   return (
     <div className="space-y-8">
@@ -86,7 +89,7 @@ export default function MyRequests() {
             Gagal memuat SPD: {spdErrObj?.message || 'unknown error'}
           </div>
         ) : (
-          <DataTable columns={spdColumns} data={spds} isLoading={spdLoading} />
+          <DataTable columns={spdColumns} data={spds} isLoading={spdLoading} actionsSlot={spdActions} />
         )}
       </div>
 
@@ -95,7 +98,7 @@ export default function MyRequests() {
         {dpdError ? (
           <div className="bg-red-50 text-red-600 p-3 rounded">Gagal memuat DPD.</div>
         ) : (
-          <DataTable columns={dpdColumns} data={dpds} isLoading={dpdLoading} />
+          <DataTable columns={dpdColumns} data={dpds} isLoading={dpdLoading} actionsSlot={dpdActions} />
         )}
       </div>
     </div>

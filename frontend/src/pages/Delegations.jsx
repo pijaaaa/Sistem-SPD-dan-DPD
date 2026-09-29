@@ -4,12 +4,16 @@ import { useForm } from 'react-hook-form';
 import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
+import { ActionButton } from '../components/common/ActionButton';
 import { FormField } from '../components/common/FormField';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useToast } from '../components/common/Toast';
+import { Plus } from 'lucide-react';
 
 export default function Delegations() {
   const queryClient = useQueryClient();
+  const { show: showToast, ToastComponent } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [cancelId, setCancelId] = useState(null);
@@ -36,19 +40,28 @@ export default function Delegations() {
       return api.post('/api/delegations', data);
     },
     onSuccess: () => {
+      const message = editingId ? 'Delegasi berhasil diperbarui' : 'Delegasi berhasil dibuat';
+      showToast(message, 'success');
       queryClient.invalidateQueries(['delegations']);
       handleCloseModal();
     },
     onError: (err) => {
-      setErrorMsg(err.response?.data?.message || 'Terjadi kesalahan saat menyimpan delegasi.');
+      const message = err.response?.data?.message || 'Terjadi kesalahan saat menyimpan delegasi.';
+      setErrorMsg(message);
+      showToast(message, 'error');
     }
   });
 
   const cancelMutation = useMutation({
     mutationFn: async (id) => api.post(`/api/delegations/${id}/cancel`),
     onSuccess: () => {
+      showToast('Delegasi berhasil dibatalkan', 'success');
       queryClient.invalidateQueries(['delegations']);
       setCancelId(null);
+    },
+    onError: (err) => {
+      const message = err.response?.data?.message || 'Gagal membatalkan delegasi';
+      showToast(message, 'error');
     }
   });
 
@@ -120,24 +133,36 @@ export default function Delegations() {
   const actions = (row) => (
     <>
       {row.is_active && (
-        <Button size="sm" variant="secondary" onClick={() => setCancelId(row.id)}>
-          Batalkan
-        </Button>
+        <ActionButton
+          icon="batalkan"
+          label="Batalkan"
+          variant="danger"
+          onClick={() => setCancelId(row.id)}
+        />
       )}
-      <Button size="sm" onClick={() => handleEdit(row)} disabled={!row.is_active}>
-        Edit
-      </Button>
+      <ActionButton
+        icon="edit"
+        label="Edit"
+        variant="secondary"
+        onClick={() => handleEdit(row)}
+        disabled={!row.is_active}
+      />
     </>
   );
 
   return (
     <div>
+      {ToastComponent}
+      
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Delegasi Approval</h1>
-          <p className="text-sm text-gray-500 mt-1">Arahkan persetujuan kepada delegate selama periode tertentu.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Delegasi Approval</h1>
+          <p className="text-sm text-gray-600 mt-1">Arahkan persetujuan kepada delegate selama periode tertentu.</p>
         </div>
-        <Button onClick={handleOpenCreate}>Buat Delegasi</Button>
+        <Button onClick={handleOpenCreate}>
+          <Plus className="w-4 h-4 mr-2" />
+          Buat Delegasi
+        </Button>
       </div>
 
       <div className="mb-4">
