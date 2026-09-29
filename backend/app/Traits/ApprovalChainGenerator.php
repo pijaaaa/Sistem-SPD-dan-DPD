@@ -23,17 +23,13 @@ trait ApprovalChainGenerator
         if ($roleName === 'user') {
             $tm = Employee::where('role_id', $tmRoleId)->where('department_id', $deptId)->first();
             $mgr = Employee::where('role_id', $mgrRoleId)->where('department_id', $deptId)->first();
-            $gm = Employee::where('role_id', $gmRoleId)->first();
 
             if ($tm) $approvers[] = $tm;
             if ($mgr) $approvers[] = $mgr;
-            if ($gm) $approvers[] = $gm;
         } elseif ($roleName === 'team_manager') {
             $mgr = Employee::where('role_id', $mgrRoleId)->where('department_id', $deptId)->first();
-            $gm = Employee::where('role_id', $gmRoleId)->first();
 
             if ($mgr) $approvers[] = $mgr;
-            if ($gm) $approvers[] = $gm;
         } elseif ($roleName === 'manager') {
             $gm = Employee::where('role_id', $gmRoleId)->first();
             if ($gm) $approvers[] = $gm;

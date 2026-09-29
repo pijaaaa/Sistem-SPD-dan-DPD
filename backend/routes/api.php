@@ -30,7 +30,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [SpdController::class, 'store']);
         Route::get('/my-approvals', [SpdApprovalController::class, 'myApprovals']);
         Route::get('/approved', [SpdApprovalController::class, 'approvedSpds']);
+        Route::post('/{spd}/revise', [SpdController::class, 'revise']);
         Route::get('/{spd}', [SpdController::class, 'show']);
+        Route::get('/{spd}/export/pdf', [SpdController::class, 'exportPdf'])->name('spd.exportPDF');
         Route::post('/approval/{chain}/approve', [SpdApprovalController::class, 'approve']);
         Route::post('/approval/{chain}/reject', [SpdApprovalController::class, 'reject']);
     });
@@ -68,7 +70,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/approval/{chain}/approve', [DpdApprovalController::class, 'approve']);
         Route::post('/approval/{chain}/reject', [DpdApprovalController::class, 'reject']);
         Route::post('/{dpd}/generate-approval-chain', [DpdApprovalController::class, 'generateApprovalChain']);
+        Route::post('/{dpd}/revise', [DpdController::class, 'revise']);
         Route::get('/{dpd}', [DpdController::class, 'show']);
+        Route::get('/{dpd}/export/pdf', [DpdController::class, 'exportPdf'])->name('dpd.exportPDF');
         Route::post('/', [DpdController::class, 'store']);
         Route::put('/{dpd}', [DpdController::class, 'update']);
         Route::delete('/{dpd}', [DpdController::class, 'destroy']);

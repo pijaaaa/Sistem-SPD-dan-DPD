@@ -18,21 +18,25 @@ class DpdNumberGeneratorService
             $deptCode = $dpd->spd->department?->code ?? 'UNK';
         }
 
-        $lastNumber = DB::table('dpds')
+        $last = DB::table('dpds')
             ->whereYear('created_at', $year)
             ->where('dpd_number', 'like', "DPD/{$deptCode}/%/{$year}")
+            ->orderByRaw("CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(dpd_number, '/', 3), '/', -1) AS UNSIGNED) DESC")
             ->lockForUpdate()
-            ->value('dpd_number');
+            ->first();
 
-        if ($lastNumber) {
-            $parts = explode('/', $lastNumber);
-            $nextNumber = (int) end($parts) + 1;
-        } else {
-            $nextNumber = 1;
+        $nextNumber = $last ? (int) explode('/', $last->dpd_number)[2] + 1 : 1;
+
+        $dpdNumber = sprintf('DPD/%s/%03d/%d', $deptCode, $nextNumber, $year);
+
+        // Safety: if the generated number somehow already exists, keep incrementing
+        while (DB::table('dpds')->where('dpd_number', $dpdNumber)->exists()) {
+            $nextNumber++;
+            $dpdNumber = sprintf('DPD/%s/%03d/%d', $deptCode, $nextNumber, $year);
         }
 
-        $dpd->dpd_number = sprintf('DPD/%s/%03d/%d', $deptCode, $nextNumber, $year);
+        $dpd->dpd_number = $dpdNumber;
 
-        return $dpd->dpd_number;
+        return $dpdNumber;
     }
 }

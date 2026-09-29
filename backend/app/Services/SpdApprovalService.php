@@ -81,26 +81,48 @@ class SpdApprovalService
     public function approve(SpdApprovalChain $chain, Employee $actor): void
     {
         DB::transaction(function () use ($chain, $actor) {
-            $originalApprover = $chain->approver;
+        $this->approveSingleChain($chain, $actor);
+
+        $nextChains = SpdApprovalChain::where('spd_id', $chain->spd_id)
+            ->where('spd_employee_id', $chain->spd_employee_id)
+            ->where('status', 'pending')
+            ->where('level_order', '>', $chain->level_order)
+            ->orderBy('level_order', 'asc')
+            ->get();
+
+        foreach ($nextChains as $nextChain) {
+            $originalApprover = $nextChain->approver;
             $actualApprover = $this->resolveActualApprover($originalApprover);
-
-            if ($actualApprover->id !== $actor->id) {
-                throw new \Exception("Unauthorized approver");
+            if ($actualApprover->id === $actor->id || $originalApprover->id === $actor->id) {
+                $this->approveSingleChain($nextChain, $actor);
+            } else {
+                break;
             }
+        }
 
-            $chain->update(['status' => 'approved']);
-
-            $actedOnBehalfOf = ($actualApprover->id !== $originalApprover->id) ? $originalApprover->id : null;
-
-            $chain->logs()->create([
-                'approver_employee_id' => $actor->id,
-                'acted_on_behalf_of' => $actedOnBehalfOf,
-                'action' => 'approved',
-                'role_at_approval' => $actor->role->name,
-            ]);
-
-            $this->checkSpdStatus($chain->spd);
+        $this->checkSpdStatus($chain->spd);
         });
+    }
+
+    protected function approveSingleChain(SpdApprovalChain $chain, Employee $actor): void
+    {
+        $originalApprover = $chain->approver;
+        $actualApprover = $this->resolveActualApprover($originalApprover);
+
+        if ($actualApprover->id !== $actor->id && $originalApprover->id !== $actor->id) {
+            throw new \Exception("Unauthorized approver");
+        }
+
+        $chain->update(['status' => 'approved']);
+
+        $actedOnBehalfOf = ($actualApprover->id !== $originalApprover->id) ? $originalApprover->id : null;
+
+        $chain->logs()->create([
+            'approver_employee_id' => $actor->id,
+            'acted_on_behalf_of' => $actedOnBehalfOf,
+            'action' => 'approved',
+            'role_at_approval' => $actor->role->name,
+        ]);
     }
 
     public function reject(SpdApprovalChain $chain, Employee $actor, string $reason): void

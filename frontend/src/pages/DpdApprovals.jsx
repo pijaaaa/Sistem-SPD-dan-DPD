@@ -25,23 +25,30 @@ export default function DpdApprovals() {
     onSuccess: () => queryClient.invalidateQueries(['dpd-my-approvals']),
   });
 
+  const [rejectError, setRejectError] = useState('');
+
   const rejectMutation = useMutation({
     mutationFn: async ({ chainId, reason }) => api.post(`/api/dpd/approval/${chainId}/reject`, { reason }),
     onSuccess: () => {
       queryClient.invalidateQueries(['dpd-my-approvals']);
       handleCloseRejectModal();
     },
+    onError: (err) => {
+      setRejectError(err.response?.data?.message || err.response?.data?.errors?.reason?.[0] || 'Gagal menolak DPD');
+    },
   });
 
   const handleOpenRejectModal = (chain) => {
     setRejectChainId(chain.id);
     setRejectReason('');
+    setRejectError('');
     setIsRejectModalOpen(true);
   };
 
   const handleCloseRejectModal = () => {
     setRejectChainId(null);
     setRejectReason('');
+    setRejectError('');
     setIsRejectModalOpen(false);
   };
 
@@ -106,6 +113,7 @@ export default function DpdApprovals() {
 
       {/* Reject Modal */}
       <Modal isOpen={isRejectModalOpen} onClose={handleCloseRejectModal} title="Tolak DPD">
+        {rejectError && <div className="mb-4 bg-red-50 text-red-600 p-3 rounded text-sm">{rejectError}</div>}
         <form onSubmit={submitReject}>
           <FormField
             as="textarea"

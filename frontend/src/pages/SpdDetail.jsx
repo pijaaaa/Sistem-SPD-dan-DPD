@@ -18,6 +18,10 @@ export default function SpdDetail() {
   const [rejectReason, setRejectReason] = useState('');
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
+  const queryClient = useQueryClient();
+
+  const [rejectError, setRejectError] = useState('');
+
   const { data: spd, isLoading } = useQuery({
     queryKey: ['spd', id],
     queryFn: async () => (await api.get(`/api/spd/${id}`)).data,
@@ -27,45 +31,104 @@ export default function SpdDetail() {
     mutationFn: async (chainId) => api.post(`/api/spd/approval/${chainId}/approve`),
     onSuccess: () => queryClient.invalidateQueries(['spd', id]),
   });
+
   const rejectMutation = useMutation({
     mutationFn: async ({ chainId, reason }) => api.post(`/api/spd/approval/${chainId}/reject`, { reason }),
-    onSuccess: () => queryClient.invalidateQueries(['spd', id]),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['spd', id]);
+      closeReject();
+    },
+    onError: (err) => {
+      setRejectError(err.response?.data?.message || err.response?.data?.errors?.reason?.[0] || 'Gagal menolak SPD');
+    },
+  });
+
+  const reviseMutation = useMutation({
+    mutationFn: async () => api.post(`/api/spd/${id}/revise`),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['spd', id]);
+      queryClient.invalidateQueries(['spds']);
+    },
+  });
+
+  const downloadPdfMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.get(`/api/spd/${id}/export/pdf`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+
+      // Check filename from Content-Disposition
+      const disposition = res.headers['content-disposition'];
+      let filename = `SPD_${spd?.spd_number}.pdf`;
+      if (disposition && disposition.indexOf('filename=') !== -1) {
+        const match = disposition.match(/filename=(.+)/);
+        if (match) filename = match[1].trim();
+      }
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
   });
 
   if (isLoading) return <div className="py-8 text-center">Memuat detail SPD...</div>;
 
   const isApprover = (spd.status === 'pending' || spd.status === 'draft');
+  const showProgress = (spd.status === 'pending' || spd.status === 'rejected' || spd.status === 'approved');
   const myEmployeeId = user?.employee?.id;
+  const isParticipant = (spd.employees || []).some(e => e.employee_id === myEmployeeId);
+  const mySpdEmployeeId = (spd.employees || []).find(e => e.employee_id === myEmployeeId)?.id;
   const pendingChains = (spd.approvalChains || []).filter(c =>
     c.status === 'pending' &&
-    c.approver_employee_id === myEmployeeId
+    (c.approver_employee_id === myEmployeeId || c.spd_employee_id === mySpdEmployeeId)
   );
   const allChains = (spd.approvalChains || []).filter(c =>
-    c.spd_employee_id !== null &&
-    c.spd_employee_id === myEmployeeId
+    c.spd_employee_id === mySpdEmployeeId
   );
 
   const openReject = (chainId) => {
     setRejectChainId(chainId);
     setRejectReason('');
+    setRejectError('');
     setIsRejectModalOpen(true);
   };
   const closeReject = () => {
     setRejectChainId(null);
     setRejectReason('');
+    setRejectError('');
     setIsRejectModalOpen(false);
   };
   const submitReject = (e) => {
     e.preventDefault();
     rejectMutation.mutate({ chainId: rejectChainId, reason: rejectReason });
-    closeReject();
   };
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Detail SPD</h1>
-        <StatusBadge status={spd.status} />
+        <div className="flex items-center gap-4">
+          <StatusBadge status={spd.status} />
+          {spd.status === 'rejected' && spd.employees?.some(e => e.employee_id === myEmployeeId && e.is_primary) && (
+            <Button onClick={() => reviseMutation.mutate()} isLoading={reviseMutation.isPending} variant="secondary">
+              Ajukan Ulang
+            </Button>
+          )}
+          {isParticipant && (
+            <button
+              onClick={() => downloadPdfMutation.mutate()}
+              className="text-sm text-gray-600 underline hover:text-gray-800"
+            >
+              Download PDF
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
@@ -120,16 +183,26 @@ export default function SpdDetail() {
         </div>
       )}
 
-      {isApprover && pendingChains.length === 0 && (
+      {showProgress && pendingChains.length === 0 && (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
           <h2 className="text-lg font-semibold mb-4">Progress Persetujuan Anda</h2>
-          <div>
-            {allChains.map(chain => (
-              <div key={chain.id} className="border-b py-2 text-sm flex justify-between">
-                <span>Level {chain.level_order} — {chain.approver?.user?.name || '-'}</span>
-                <StatusBadge status={chain.status} />
-              </div>
-            ))}
+          <div className="space-y-2">
+            {allChains.map(chain => {
+              const rejectLog = chain.logs?.find(log => log.action === 'rejected');
+              return (
+                <div key={chain.id} className="border p-3 rounded text-sm bg-gray-50">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-medium">Level {chain.level_order} — {chain.approver?.user?.name || '-'}</span>
+                    <StatusBadge status={chain.status} />
+                  </div>
+                  {rejectLog && (
+                    <div className="mt-2 text-red-600 bg-red-50 p-2 rounded border border-red-100">
+                      <strong>Alasan Penolakan:</strong> {rejectLog.rejection_reason}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {allChains.length === 0 && <p className="text-gray-500">Belum ada rantai approval.</p>}
           </div>
         </div>
@@ -139,14 +212,19 @@ export default function SpdDetail() {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
           <h2 className="text-lg font-semibold mb-4">DPD</h2>
           {spd.dpd ? (
-            <p>DPD sudah ada: <strong>{spd.dpd.dpd_number}</strong></p>
+            <p>DPD sudah ada: <button onClick={() => navigate(`/dpd/${spd.dpd.id}`)} className="text-blue-600 underline hover:text-blue-800"><strong>{spd.dpd.dpd_number}</strong></button></p>
           ) : (
-            <Button onClick={() => navigate(`/dpd/create?spd_id=${spd.id}`)}>Buat DPD</Button>
+            spd.employees?.some(e => e.employee_id === myEmployeeId && e.is_primary) ? (
+              <Button onClick={() => navigate(`/dpd/create?spd_id=${spd.id}`)}>Buat DPD</Button>
+            ) : (
+              <p className="text-gray-500">Hanya pengaju utama yang dapat membuat DPD.</p>
+            )
           )}
         </div>
       )}
 
       <Modal isOpen={isRejectModalOpen} onClose={closeReject} title="Tolak SPD">
+        {rejectError && <div className="mb-4 bg-red-50 text-red-600 p-3 rounded text-sm">{rejectError}</div>}
         <form onSubmit={submitReject}>
           <FormField as="textarea" label="Alasan Penolakan" rows={4} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} required placeholder="Tulis alasan..." />
           <div className="flex justify-end gap-2 mt-4">

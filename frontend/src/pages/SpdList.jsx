@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 export default function SpdList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data: spds, isLoading } = useQuery({
@@ -40,16 +40,24 @@ export default function SpdList() {
     { header: 'Status', cell: row => <StatusBadge status={row.status} /> },
   ];
 
-  const actions = (row) => (
-    <>
-      <Button size="sm" onClick={() => navigate(`/spd/${row.id}`)}>Detail</Button>
-      {row.status === 'approved' && (
-        <Button size="sm" variant="secondary" onClick={() => navigate(`/dpd/create?spd_id=${row.id}`)}>
-          Buat DPD
-        </Button>
-      )}
-    </>
-  );
+  const actions = (row) => {
+    const isPrimary = row.employees?.some(e => e.employee_id === user?.employee?.id && e.is_primary);
+    return (
+      <>
+        <Button size="sm" onClick={() => navigate(`/spd/${row.id}`)}>Detail</Button>
+        {row.status === 'approved' && !row.dpd && isPrimary && (
+          <Button size="sm" variant="secondary" onClick={() => navigate(`/dpd/create?spd_id=${row.id}`)}>
+            Buat DPD
+          </Button>
+        )}
+        {row.dpd && (
+          <Button size="sm" variant="secondary" onClick={() => navigate(`/dpd/${row.dpd.id}`)}>
+            Lihat DPD
+          </Button>
+        )}
+      </>
+    );
+  };
 
   return (
     <div>

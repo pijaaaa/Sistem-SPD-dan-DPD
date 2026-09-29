@@ -26,7 +26,12 @@ class DpdController extends Controller
         $query = Dpd::with(['spd', 'employee.user', 'reports', 'expenses.category']);
 
         if ($employee && $employee->role->name !== 'super_admin') {
-            $query->where('employee_id', $employee->id);
+            $query->where(function ($q) use ($employee) {
+                $q->where('employee_id', $employee->id)
+                  ->orWhereHas('spd.employees', function ($sq) use ($employee) {
+                      $sq->where('employee_id', $employee->id);
+                  });
+            });
         }
 
         $dpds = $query->orderBy('created_at', 'desc')->get();
@@ -36,7 +41,14 @@ class DpdController extends Controller
 
     public function show(Dpd $dpd)
     {
-        $dpd->load(['spd.employees.employee', 'employee.user', 'reports', 'expenses.category']);
+        $dpd->load([
+            'spd.employees.employee', 
+            'employee.user', 
+            'reports', 
+            'expenses.category',
+            'approvalChains.approver.user',
+            'approvalChains.logs'
+        ]);
 
         $spd = $dpd->spd;
         $tripDays = $spd ? $spd->start_date->diffInDays($spd->end_date) + 1 : 0;
@@ -83,6 +95,15 @@ class DpdController extends Controller
 
         if (!$isParticipant && $employee->role->name !== 'super_admin') {
             return response()->json(['message' => 'Anda bukan peserta SPD ini.'], 403);
+        }
+
+        $isPrimary = SpdEmployee::where('spd_id', $spd->id)
+            ->where('employee_id', $employee->id)
+            ->where('is_primary', true)
+            ->exists();
+
+        if (!$isPrimary && $employee->role->name !== 'super_admin') {
+            return response()->json(['message' => 'Hanya pengaju utama SPD yang dapat membuat DPD.'], 403);
         }
 
         $existingDpd = Dpd::where('spd_id', $spd->id)->first();
@@ -154,6 +175,15 @@ class DpdController extends Controller
 
     public function update(Request $request, Dpd $dpd)
     {
+        $user = $request->user();
+        $employee = $user->employee;
+
+        if ($employee && $employee->role->name !== 'super_admin') {
+            if ($dpd->employee_id !== $employee->id) {
+                return response()->json(['message' => 'Hanya pembuat DPD yang dapat mengedit.'], 403);
+            }
+        }
+
         if ($dpd->status !== 'draft') {
             return response()->json(['message' => 'Hanya DPD dengan status draft yang bisa diedit.'], 403);
         }
@@ -260,8 +290,49 @@ class DpdController extends Controller
         return response()->json($dpd->load(['spd', 'employee.user', 'reports', 'expenses.category']));
     }
 
-    public function destroy(Dpd $dpd)
+    public function revise(Request $request, Dpd $dpd)
     {
+        $user = $request->user();
+        $employee = $user->employee;
+
+        if ($employee && $employee->role->name !== 'super_admin') {
+            if ($dpd->employee_id !== $employee->id) {
+                return response()->json(['message' => 'Hanya pembuat DPD yang dapat melakukan revisi.'], 403);
+            }
+        }
+
+        if ($dpd->status !== 'rejected') {
+            return response()->json(['message' => 'Hanya DPD yang ditolak (rejected) yang bisa direvisi.'], 403);
+        }
+
+        DB::transaction(function () use ($dpd) {
+            // Hapus logs yang terkait dengan chains
+            $chainIds = $dpd->approvalChains()->pluck('id');
+            \App\Models\ApprovalLog::where('approvable_type', \App\Models\DpdApprovalChain::class)
+                ->whereIn('approvable_id', $chainIds)
+                ->delete();
+
+            // Hapus chains
+            $dpd->approvalChains()->delete();
+
+            // Ubah status ke draft
+            $dpd->update(['status' => 'draft']);
+        });
+
+        return response()->json(['message' => 'DPD berhasil di-reset ke draft untuk revisi.']);
+    }
+
+    public function destroy(Request $request, Dpd $dpd)
+    {
+        $user = $request->user();
+        $employee = $user->employee;
+
+        if ($employee && $employee->role->name !== 'super_admin') {
+            if ($dpd->employee_id !== $employee->id) {
+                return response()->json(['message' => 'Hanya pembuat DPD yang dapat menghapus.'], 403);
+            }
+        }
+
         if ($dpd->status !== 'draft') {
             return response()->json(['message' => 'Hanya DPD dengan status draft yang bisa dihapus.'], 403);
         }
@@ -286,5 +357,134 @@ class DpdController extends Controller
     public function categories()
     {
         return response()->json(DpdExpenseCategory::all());
+    }
+
+    public function exportPdf(Dpd $dpd)
+    {
+        $user = request()->user();
+        $employee = $user->employee;
+
+        if ($employee && $employee->role->name !== 'super_admin') {
+            $isCreator = $dpd->employee_id === $employee->id;
+            if (!$isCreator) {
+                $isParticipant = SpdEmployee::where('spd_id', $dpd->spd_id)
+                    ->where('employee_id', $employee->id)
+                    ->exists();
+                if (!$isParticipant) {
+                    return response()->json(['message' => 'Anda tidak memiliki akses untuk mengunduh PDF ini.'], 403);
+                }
+            }
+        }
+
+        $dpd->load([
+            'spd.employees.employee.user',
+            'employee.user',
+            'reports',
+            'expenses.category',
+            'approvalChains.approver.user',
+            'approvalChains.logs',
+        ]);
+
+        $tripDays = $dpd->spd ? $dpd->spd->start_date->diffInDays($dpd->spd->end_date) + 1 : 0;
+
+        $pdf = app('dompdf.wrapper');
+        $html = $this->renderDpdHtml($dpd, $tripDays);
+
+        $filename = 'DPD_' . str_replace(['/', ' '], '_', $dpd->dpd_number) . '.pdf';
+
+        return $pdf->loadHTML($html)->download($filename);
+    }
+
+    protected function renderDpdHtml(Dpd $dpd, int $tripDays): string
+    {
+        $h = \App\Helpers\PdfHelper::class;
+
+        $html = $h::htmlHead('Detail DPD');
+        $html .= '<h1>Detail DPD ' . $h::escape($dpd->dpd_number) . '</h1>';
+
+        $html .= '<div class="section">';
+        $html .= '<div class="label">No. DPD:</div> ' . $h::escape($dpd->dpd_number) . '<br>';
+        $html .= '<div class="label">Status:</div> ' . $h::statusBadge($dpd->status) . '<br>';
+        $html .= '<div class="label">Pengaju:</div> ' . $h::escape($dpd->employee?->user?->name ?? '-') . '<br>';
+        $html .= '<div class="label">Total Nominal:</div> ' . $h::formatCurrency($dpd->total_nominal) . '<br>';
+        $html .= '<div class="label">Tanggal Pengajuan:</div> ' . $h::formatDate($dpd->submission_date) . '<br>';
+        if ($dpd->spm_date) {
+            $html .= '<div class="label">Tanggal SPM:</div> ' . $h::formatDate($dpd->spm_date) . '<br>';
+        }
+        $html .= '</div>';
+
+        if ($dpd->spd) {
+            $html .= '<div class="section"><h2>SPD Terkait</h2>';
+            $html .= '<div class="label">No. SPD:</div> ' . $h::escape($dpd->spd->spd_number) . '<br>';
+            $html .= '<div class="label">Tujuan:</div> ' . $h::escape($dpd->spd->destination) . '<br>';
+            $html .= '<div class="label">Periode:</div> ' . $h::formatDate($dpd->spd->start_date) . ' s/d ' . $h::formatDate($dpd->spd->end_date) . '<br>';
+            $html .= '<div class="label">Jumlah Hari:</div> ' . $tripDays . ' hari<br>';
+            $html .= '</div>';
+
+            $html .= '<div class="section"><h2>Peserta SPD</h2><table><thead><tr><th>Nama</th><th>Pemohon Utama</th></tr></thead><tbody>';
+            foreach ($dpd->spd->employees as $se) {
+                $html .= '<tr><td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
+                $html .= '<td>' . ($se->is_primary ? 'Ya' : 'Tidak') . '</td></tr>';
+            }
+            $html .= '</tbody></table></div>';
+        }
+
+        $html .= '<div class="section"><h2>Laporan Kegiatan</h2>';
+        if ($dpd->reports && count($dpd->reports) > 0) {
+            foreach ($dpd->reports as $r) {
+                $html .= '<div style="margin-bottom:8px"><div class="label">Judul:</div> ' . $h::escape($r->title) . '<br>';
+                if ($r->description) {
+                    $html .= '<div class="label">Deskripsi:</div> ' . $h::escape($r->description) . '<br>';
+                }
+                if ($r->attachment_path) {
+                    $html .= '<div class="label">File:</div> ' . $h::escape($r->attachment_path) . '<br>';
+                }
+                $html .= '</div>';
+            }
+        } else {
+            $html .= '<p>Tidak ada laporan kegiatan.</p>';
+        }
+        $html .= '</div>';
+
+        $html .= '<div class="section"><h2>Item Nota / Reimbursement</h2>';
+        if ($dpd->expenses && count($dpd->expenses) > 0) {
+            $html .= '<table><thead><tr><th>Kategori</th><th>Deskripsi</th><th>Nominal</th><th>Tanggal</th></tr></thead><tbody>';
+            $total = 0;
+            foreach ($dpd->expenses as $e) {
+                $catName = $e->category ? $e->category->name : $e->category_id;
+                $html .= '<tr>';
+                $html .= '<td>' . $h::escape($catName) . '</td>';
+                $html .= '<td>' . $h::escape($e->description) . '</td>';
+                $html .= '<td>' . $h::formatCurrency($e->amount) . '</td>';
+                $html .= '<td>' . $h::formatDate($e->expense_date) . '</td>';
+                $html .= '</tr>';
+                $total += (float) $e->amount;
+            }
+            $html .= '<tr><td colspan="3"><strong>Total</strong></td><td><strong>' . $h::formatCurrency($total) . '</strong></td></tr>';
+            $html .= '</tbody></table>';
+        } else {
+            $html .= '<p>Tidak ada item nota.</p>';
+        }
+        $html .= '</div>';
+
+        if (!empty($dpd->approvalChains)) {
+            $html .= '<div class="section"><h2>Riwayat Persetujuan</h2><table><thead><tr><th>Level</th><th>Nama</th><th>Status</th><th>Tanggal</th><th>Alasan Penolakan</th></tr></thead><tbody>';
+            foreach ($dpd->approvalChains as $chain) {
+                $approverName = $chain->approver ? ($chain->approver->user ? $chain->approver->user->name : $chain->approver->name) : '-';
+                $rejectLog = $chain->logs ? $chain->logs->firstWhere('action', 'rejected') : null;
+                $html .= '<tr>';
+                $html .= '<td>' . $chain->level_order . '</td>';
+                $html .= '<td>' . $h::escape($approverName) . '</td>';
+                $html .= '<td>' . $h::statusBadge($chain->status) . '</td>';
+                $html .= '<td>' . ($rejectLog ? $h::formatDate($rejectLog->created_at) : '-') . '</td>';
+                $html .= '<td>' . ($rejectLog ? $h::escape($rejectLog->rejection_reason) : '-') . '</td>';
+                $html .= '</tr>';
+            }
+            $html .= '</tbody></table></div>';
+        }
+
+        $html .= '</body></html>';
+
+        return $html;
     }
 }

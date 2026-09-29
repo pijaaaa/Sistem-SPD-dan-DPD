@@ -1,0 +1,22 @@
+﻿
+   InvalidArgumentException 
+
+  Unexpected end of input
+
+  at backend\vendor\psy\psysh\src\Shell.php:1516
+    1512Ôûò 
+    1513Ôûò         if (!$this->hasValidCode()) {
+    1514Ôûò             $this->popCodeStack();
+    1515Ôûò 
+  Ô×£ 1516Ôûò             throw new \InvalidArgumentException('Unexpected end of input');
+    1517Ôûò         }
+    1518Ôûò     }
+    1519Ôûò 
+    1520Ôûò     /**
+
+  1   backend\vendor\psy\psysh\src\Shell.php:2215
+      Psy\Shell::setCode("echo \DB::select(\DESCRIBE")
+
+  2   backend\vendor\laravel\tinker\src\Console\TinkerCommand.php:77
+      Psy\Shell::execute("echo \DB::select(\DESCRIBE")
+

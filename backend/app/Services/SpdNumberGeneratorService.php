@@ -20,23 +20,27 @@ class SpdNumberGeneratorService
         }
         $deptCode = $deptCode ?? 'UNK';
 
-        $lastNumber = DB::table('spds')
+        $last = DB::table('spds')
             ->whereYear('created_at', $year)
             ->where('main_department_id', $deptId)
             ->where('spd_number', 'like', "SPD/{$deptCode}/%/{$monthRomawi}/{$year}")
+            ->orderByRaw("CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(spd_number, '/', 3), '/', -1) AS UNSIGNED) DESC")
             ->lockForUpdate()
-            ->value('spd_number');
+            ->first();
 
-        if ($lastNumber) {
-            $parts = explode('/', $lastNumber);
-            $nextNumber = (int) $parts[2] + 1;
-        } else {
-            $nextNumber = 1;
+        $nextNumber = $last ? (int) explode('/', $last->spd_number)[2] + 1 : 1;
+
+        $spdNumber = sprintf('SPD/%s/%03d/%s/%d', $deptCode, $nextNumber, $monthRomawi, $year);
+
+        // Safety: if the generated number somehow already exists, keep incrementing
+        while (DB::table('spds')->where('spd_number', $spdNumber)->exists()) {
+            $nextNumber++;
+            $spdNumber = sprintf('SPD/%s/%03d/%s/%d', $deptCode, $nextNumber, $monthRomawi, $year);
         }
 
-        $spd->spd_number = sprintf('SPD/%s/%03d/%s/%d', $deptCode, $nextNumber, $monthRomawi, $year);
+        $spd->spd_number = $spdNumber;
 
-        return $spd->spd_number;
+        return $spdNumber;
     }
 
     private function romanMonth(int $month): string

@@ -30,11 +30,13 @@ class SpdApprovalController extends Controller
         $employee = $user->employee;
 
         $query = \App\Models\Spd::with(['department', 'employees.employee'])
-            ->where('status', 'approved');
+            ->where('status', 'approved')
+            ->whereDoesntHave('dpd');
 
         if ($employee && $employee->role->name !== 'super_admin') {
             $query->whereHas('employees', function ($q) use ($employee) {
-                $q->where('employee_id', $employee->id);
+                $q->where('employee_id', $employee->id)
+                  ->where('is_primary', true);
             });
         }
 

@@ -12,6 +12,7 @@ import Approvals from './pages/Approvals';
 import Delegations from './pages/Delegations';
 import DpdList from './pages/DpdList';
 import DpdCreate from './pages/DpdCreate';
+import DpdEdit from './pages/DpdEdit';
 import DpdDetail from './pages/DpdDetail';
 import DpdApprovals from './pages/DpdApprovals';
 import Settings from './pages/Settings';
@@ -72,6 +73,7 @@ function AppRoutes() {
         {/* DPD Routes - Milestone 6 */}
         <Route path="/dpd/create" element={<DpdCreate />} />
         <Route path="/dpd" element={<DpdList />} />
+        <Route path="/dpd/:id/edit" element={<DpdEdit />} />
         <Route path="/dpd/:id" element={<DpdDetail />} />
         
         {/* Master Data Routes - Super Admin Only */}

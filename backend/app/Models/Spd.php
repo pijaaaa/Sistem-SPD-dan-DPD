@@ -41,4 +41,9 @@ class Spd extends Model
     {
         return $this->hasMany(SpdApprovalChain::class);
     }
+
+    public function dpd()
+    {
+        return $this->hasOne(Dpd::class);
+    }
 }

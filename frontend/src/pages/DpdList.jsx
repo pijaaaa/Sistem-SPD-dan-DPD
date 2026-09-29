@@ -5,10 +5,12 @@ import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useAuth } from '../context/AuthContext';
 
 export default function DpdList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const { data: dpds, isLoading } = useQuery({
     queryKey: ['dpds'],
@@ -30,17 +32,21 @@ export default function DpdList() {
     { header: 'Status', cell: row => <StatusBadge status={row.status} /> },
   ];
 
-  const actions = (row) => (
-    <div className="flex justify-end gap-2">
-      <Button size="sm" onClick={() => navigate(`/dpd/${row.id}`)}>Detail</Button>
-      {row.status === 'draft' && (
-        <>
-          <Button size="sm" variant="secondary" onClick={() => navigate(`/dpd/${row.id}/edit`)}>Edit</Button>
-          <Button size="sm" variant="danger" onClick={() => deleteMutation.mutate(row.id)} disabled={deleteMutation.isPending}>Hapus</Button>
-        </>
-      )}
-    </div>
-  );
+  const actions = (row) => {
+    const isCreator = row.employee_id === user?.employee?.id;
+
+    return (
+      <div className="flex justify-end gap-2">
+        <Button size="sm" onClick={() => navigate(`/dpd/${row.id}`)}>Detail</Button>
+        {row.status === 'draft' && isCreator && (
+          <>
+            <Button size="sm" variant="secondary" onClick={() => navigate(`/dpd/${row.id}/edit`)}>Edit</Button>
+            <Button size="sm" variant="danger" onClick={() => deleteMutation.mutate(row.id)} isLoading={deleteMutation.isPending}>Hapus</Button>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div>
