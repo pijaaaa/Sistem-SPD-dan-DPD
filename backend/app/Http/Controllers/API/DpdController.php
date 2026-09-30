@@ -15,6 +15,8 @@ use App\Services\DpdApprovalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class DpdController extends Controller
 {
@@ -387,102 +389,159 @@ class DpdController extends Controller
 
         $tripDays = $dpd->spd ? $dpd->spd->start_date->diffInDays($dpd->spd->end_date) + 1 : 0;
 
-        $pdf = app('dompdf.wrapper');
         $html = $this->renderDpdHtml($dpd, $tripDays);
+        
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isPhpEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
 
         $filename = 'DPD_' . str_replace(['/', ' '], '_', $dpd->dpd_number) . '.pdf';
 
-        return $pdf->loadHTML($html)->download($filename);
+        return response()->streamDownload(function() use ($dompdf) {
+            echo $dompdf->output();
+        }, $filename, ['Content-Type' => 'application/pdf']);
     }
 
     protected function renderDpdHtml(Dpd $dpd, int $tripDays): string
     {
         $h = \App\Helpers\PdfHelper::class;
 
-        $html = $h::htmlHead('Detail DPD');
-        $html .= '<h1>Detail DPD ' . $h::escape($dpd->dpd_number) . '</h1>';
+        $html = $h::htmlHead('Detail DPD - ' . $dpd->dpd_number, 'DPD');
+        $html .= $h::watermark($dpd->status);
+        $html .= $h::header('DPD');
+        
+        $html .= '<div class="doc-title">DOKUMENTASI PERJALANAN DINAS (DPD)</div>';
 
         $html .= '<div class="section">';
-        $html .= '<div class="label">No. DPD:</div> ' . $h::escape($dpd->dpd_number) . '<br>';
-        $html .= '<div class="label">Status:</div> ' . $h::statusBadge($dpd->status) . '<br>';
-        $html .= '<div class="label">Pengaju:</div> ' . $h::escape($dpd->employee?->user?->name ?? '-') . '<br>';
-        $html .= '<div class="label">Total Nominal:</div> ' . $h::formatCurrency($dpd->total_nominal) . '<br>';
-        $html .= '<div class="label">Tanggal Pengajuan:</div> ' . $h::formatDate($dpd->submission_date) . '<br>';
+        $html .= '<div class="section-title">Informasi DPD</div>';
+        $html .= '<div class="info-row"><div class="info-label">No. DPD:</div><div class="info-value">' . $h::escape($dpd->dpd_number) . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Status:</div><div class="info-value">' . $h::statusBadge($dpd->status) . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Pengaju:</div><div class="info-value">' . $h::escape($dpd->employee?->user?->name ?? '-') . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Departemen:</div><div class="info-value">' . $h::escape($dpd->employee?->department?->name ?? '-') . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Total Nominal:</div><div class="info-value"><strong>' . $h::formatCurrency($dpd->total_nominal) . '</strong></div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Tanggal Pengajuan:</div><div class="info-value">' . $h::formatDate($dpd->submission_date) . '</div></div>';
         if ($dpd->spm_date) {
-            $html .= '<div class="label">Tanggal SPM:</div> ' . $h::formatDate($dpd->spm_date) . '<br>';
+            $html .= '<div class="info-row"><div class="info-label">Tanggal SPM:</div><div class="info-value">' . $h::formatDate($dpd->spm_date) . '</div></div>';
         }
         $html .= '</div>';
 
         if ($dpd->spd) {
-            $html .= '<div class="section"><h2>SPD Terkait</h2>';
-            $html .= '<div class="label">No. SPD:</div> ' . $h::escape($dpd->spd->spd_number) . '<br>';
-            $html .= '<div class="label">Tujuan:</div> ' . $h::escape($dpd->spd->destination) . '<br>';
-            $html .= '<div class="label">Periode:</div> ' . $h::formatDate($dpd->spd->start_date) . ' s/d ' . $h::formatDate($dpd->spd->end_date) . '<br>';
-            $html .= '<div class="label">Jumlah Hari:</div> ' . $tripDays . ' hari<br>';
+            $html .= '<div class="section">';
+            $html .= '<div class="section-title">Referensi SPD</div>';
+            $html .= '<div class="info-row"><div class="info-label">No. SPD:</div><div class="info-value">' . $h::escape($dpd->spd->spd_number) . '</div></div>';
+            $html .= '<div class="info-row"><div class="info-label">Tujuan:</div><div class="info-value">' . $h::escape($dpd->spd->destination) . '</div></div>';
+            $html .= '<div class="info-row"><div class="info-label">Keperluan:</div><div class="info-value">' . $h::escape($dpd->spd->purpose) . '</div></div>';
+            $html .= '<div class="info-row"><div class="info-label">Periode:</div><div class="info-value">' . $h::formatDate($dpd->spd->start_date) . ' s/d ' . $h::formatDate($dpd->spd->end_date) . ' (' . $tripDays . ' hari)</div></div>';
             $html .= '</div>';
 
-            $html .= '<div class="section"><h2>Peserta SPD</h2><table><thead><tr><th>Nama</th><th>Pemohon Utama</th></tr></thead><tbody>';
+            $html .= '<div class="section">';
+            $html .= '<div class="section-title">Peserta Perjalanan Dinas</div>';
+            $html .= '<table><thead><tr><th>Nama</th><th>Departemen</th><th>Status</th></tr></thead><tbody>';
             foreach ($dpd->spd->employees as $se) {
-                $html .= '<tr><td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
-                $html .= '<td>' . ($se->is_primary ? 'Ya' : 'Tidak') . '</td></tr>';
+                $html .= '<tr>';
+                $html .= '<td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
+                $html .= '<td>' . $h::escape($se->employee?->department?->name ?? '-') . '</td>';
+                $html .= '<td>' . ($se->is_primary ? '<strong>Pemohon Utama</strong>' : 'Peserta') . '</td>';
+                $html .= '</tr>';
             }
-            $html .= '</tbody></table></div>';
+            $html .= '</tbody></table>';
+            $html .= '</div>';
         }
 
-        $html .= '<div class="section"><h2>Laporan Kegiatan</h2>';
+        $html .= '<div class="section">';
+        $html .= '<div class="section-title">Laporan Kegiatan</div>';
         if ($dpd->reports && count($dpd->reports) > 0) {
-            foreach ($dpd->reports as $r) {
-                $html .= '<div style="margin-bottom:8px"><div class="label">Judul:</div> ' . $h::escape($r->title) . '<br>';
+            foreach ($dpd->reports as $idx => $r) {
+                $html .= '<div style="margin-bottom:15px; padding:10px; background:#f9fafb; border-left:3px solid #10b981; border-radius:4px;">';
+                $html .= '<div class="info-row"><div class="info-label">Laporan #' . ($idx + 1) . ':</div><div class="info-value"><strong>' . $h::escape($r->title) . '</strong></div></div>';
                 if ($r->description) {
-                    $html .= '<div class="label">Deskripsi:</div> ' . $h::escape($r->description) . '<br>';
+                    $html .= '<div class="info-row"><div class="info-label">Deskripsi:</div><div class="info-value">' . nl2br($h::escape($r->description)) . '</div></div>';
                 }
                 if ($r->attachment_path) {
-                    $html .= '<div class="label">File:</div> ' . $h::escape($r->attachment_path) . '<br>';
+                    $html .= '<div class="info-row"><div class="info-label">File Lampiran:</div><div class="info-value">' . $h::escape(basename($r->attachment_path)) . '</div></div>';
                 }
                 $html .= '</div>';
             }
         } else {
-            $html .= '<p>Tidak ada laporan kegiatan.</p>';
+            $html .= '<p style="color:#6b7280; font-style:italic;">Tidak ada laporan kegiatan.</p>';
         }
         $html .= '</div>';
 
-        $html .= '<div class="section"><h2>Item Nota / Reimbursement</h2>';
+        $html .= '<div class="section">';
+        $html .= '<div class="section-title">Rincian Biaya / Reimbursement</div>';
         if ($dpd->expenses && count($dpd->expenses) > 0) {
-            $html .= '<table><thead><tr><th>Kategori</th><th>Deskripsi</th><th>Nominal</th><th>Tanggal</th></tr></thead><tbody>';
+            $html .= '<table>';
+            $html .= '<thead><tr><th style="width:20%;">Kategori</th><th style="width:35%;">Deskripsi</th><th style="width:20%;">Nominal</th><th style="width:25%;">Tanggal</th></tr></thead>';
+            $html .= '<tbody>';
             $total = 0;
             foreach ($dpd->expenses as $e) {
                 $catName = $e->category ? $e->category->name : $e->category_id;
                 $html .= '<tr>';
                 $html .= '<td>' . $h::escape($catName) . '</td>';
                 $html .= '<td>' . $h::escape($e->description) . '</td>';
-                $html .= '<td>' . $h::formatCurrency($e->amount) . '</td>';
+                $html .= '<td style="text-align:right;">' . $h::formatCurrency($e->amount) . '</td>';
                 $html .= '<td>' . $h::formatDate($e->expense_date) . '</td>';
                 $html .= '</tr>';
                 $total += (float) $e->amount;
             }
-            $html .= '<tr><td colspan="3"><strong>Total</strong></td><td><strong>' . $h::formatCurrency($total) . '</strong></td></tr>';
+            $html .= '<tr class="total-row">';
+            $html .= '<td colspan="2" style="text-align:right;"><strong>TOTAL BIAYA</strong></td>';
+            $html .= '<td style="text-align:right;"><strong>' . $h::formatCurrency($total) . '</strong></td>';
+            $html .= '<td></td>';
+            $html .= '</tr>';
             $html .= '</tbody></table>';
         } else {
-            $html .= '<p>Tidak ada item nota.</p>';
+            $html .= '<p style="color:#6b7280; font-style:italic;">Tidak ada item biaya.</p>';
         }
         $html .= '</div>';
 
         if (!empty($dpd->approvalChains)) {
-            $html .= '<div class="section"><h2>Riwayat Persetujuan</h2><table><thead><tr><th>Level</th><th>Nama</th><th>Status</th><th>Tanggal</th><th>Alasan Penolakan</th></tr></thead><tbody>';
+            $html .= '<div class="section">';
+            $html .= '<div class="section-title">Riwayat Persetujuan</div>';
+            $html .= '<table>';
+            $html .= '<thead><tr><th>Level</th><th>Nama Approver</th><th>Role</th><th>Status</th><th>Tanggal</th><th>Catatan</th></tr></thead>';
+            $html .= '<tbody>';
+            
+            $approvers = [];
             foreach ($dpd->approvalChains as $chain) {
                 $approverName = $chain->approver ? ($chain->approver->user ? $chain->approver->user->name : $chain->approver->name) : '-';
+                $approverRole = $chain->approver?->role?->name ?? '-';
                 $rejectLog = $chain->logs ? $chain->logs->firstWhere('action', 'rejected') : null;
+                $approveLog = $chain->logs ? $chain->logs->firstWhere('action', 'approved') : null;
+                $log = $rejectLog ?? $approveLog;
+                
                 $html .= '<tr>';
-                $html .= '<td>' . $chain->level_order . '</td>';
+                $html .= '<td>Level ' . $chain->level_order . '</td>';
                 $html .= '<td>' . $h::escape($approverName) . '</td>';
+                $html .= '<td>' . $h::escape($approverRole) . '</td>';
                 $html .= '<td>' . $h::statusBadge($chain->status) . '</td>';
-                $html .= '<td>' . ($rejectLog ? $h::formatDate($rejectLog->created_at) : '-') . '</td>';
+                $html .= '<td>' . ($log ? $h::formatDate($log->created_at) : '-') . '</td>';
                 $html .= '<td>' . ($rejectLog ? $h::escape($rejectLog->rejection_reason) : '-') . '</td>';
                 $html .= '</tr>';
+                
+                if ($chain->status === 'approved') {
+                    $approvers[] = [
+                        'name' => $approverName,
+                        'role' => $approverRole,
+                    ];
+                }
             }
-            $html .= '</tbody></table></div>';
+            $html .= '</tbody></table>';
+            $html .= '</div>';
+            
+            $requesterName = $dpd->employee?->user?->name ?? 'Pemohon';
+            $requesterRole = $dpd->employee?->role?->name ?? 'Karyawan';
+            
+            $html .= $h::signatureBoxes($approvers, $requesterName, $requesterRole);
         }
 
+        $html .= $h::footer();
         $html .= '</body></html>';
 
         return $html;

@@ -11,6 +11,8 @@ use App\Services\SpdNumberGeneratorService;
 use App\Services\SpdApprovalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class SpdController extends Controller
 {
@@ -182,57 +184,105 @@ class SpdController extends Controller
             'approvalChains.logs',
         ]);
 
-        $pdf = app('dompdf.wrapper');
         $html = $this->renderSpdHtml($spd);
+        
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isPhpEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
 
         $filename = 'SPD_' . str_replace(['/', ' '], '_', $spd->spd_number) . '.pdf';
 
-        return $pdf->loadHTML($html)->download($filename);
+        return response()->streamDownload(function() use ($dompdf) {
+            echo $dompdf->output();
+        }, $filename, ['Content-Type' => 'application/pdf']);
     }
 
     protected function renderSpdHtml(Spd $spd): string
     {
         $h = \App\Helpers\PdfHelper::class;
 
-        $html = $h::htmlHead('Detail SPD');
-        $html .= '<h1>Detail SPD ' . $h::escape($spd->spd_number) . '</h1>';
+        $html = $h::htmlHead('Detail SPD - ' . $spd->spd_number, 'SPD');
+        $html .= $h::watermark($spd->status);
+        $html .= $h::header('SPD');
+        
+        $html .= '<div class="doc-title">SURAT PERJALANAN DINAS (SPD)</div>';
 
         $html .= '<div class="section">';
-        $html .= '<div class="label">No. SPD:</div> ' . $h::escape($spd->spd_number) . '<br>';
-        $html .= '<div class="label">Status:</div> ' . $h::statusBadge($spd->status) . '<br>';
-        $html .= '<div class="label">Tujuan:</div> ' . $h::escape($spd->destination) . '<br>';
-        $html .= '<div class="label">Keperluan:</div> ' . $h::escape($spd->purpose) . '<br>';
-        $html .= '<div class="label">Periode:</div> ' . $h::formatDate($spd->start_date) . ' s/d ' . $h::formatDate($spd->end_date) . '<br>';
-        $html .= '<div class="label">Departemen:</div> ' . $h::escape($spd->department?->code) . '<br>';
-        $html .= '<div class="label">Lintas Departemen:</div> ' . ($spd->is_cross_department ? 'Ya' : 'Tidak') . '<br>';
+        $html .= '<div class="section-title">Informasi SPD</div>';
+        $html .= '<div class="info-row"><div class="info-label">No. SPD:</div><div class="info-value">' . $h::escape($spd->spd_number) . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Status:</div><div class="info-value">' . $h::statusBadge($spd->status) . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Tujuan:</div><div class="info-value">' . $h::escape($spd->destination) . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Keperluan:</div><div class="info-value">' . $h::escape($spd->purpose) . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Periode:</div><div class="info-value">' . $h::formatDate($spd->start_date) . ' s/d ' . $h::formatDate($spd->end_date) . '</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Departemen:</div><div class="info-value">' . $h::escape($spd->department?->name ?? '-') . ' (' . $h::escape($spd->department?->code ?? '-') . ')</div></div>';
+        $html .= '<div class="info-row"><div class="info-label">Lintas Departemen:</div><div class="info-value">' . ($spd->is_cross_department ? 'Ya' : 'Tidak') . '</div></div>';
         $html .= '</div>';
 
-        $html .= '<div class="section"><h2>Peserta SPD</h2><table><thead><tr><th>Nama</th><th>Role</th><th>Departemen</th><th>Pemohon Utama</th></tr></thead><tbody>';
+        $html .= '<div class="section">';
+        $html .= '<div class="section-title">Peserta Perjalanan Dinas</div>';
+        $html .= '<table>';
+        $html .= '<thead><tr><th>Nama</th><th>Role</th><th>Departemen</th><th>Status</th></tr></thead>';
+        $html .= '<tbody>';
         foreach ($spd->employees as $se) {
-            $html .= '<tr><td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name) . '</td>';
-            $html .= '<td>' . $h::escape($se->employee?->role?->name) . '</td>';
-            $html .= '<td>' . $h::escape($se->employee?->department?->code) . '</td>';
-            $html .= '<td>' . ($se->is_primary ? 'Ya' : 'Tidak') . '</td></tr>';
+            $html .= '<tr>';
+            $html .= '<td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
+            $html .= '<td>' . $h::escape($se->employee?->role?->name ?? '-') . '</td>';
+            $html .= '<td>' . $h::escape($se->employee?->department?->name ?? '-') . '</td>';
+            $html .= '<td>' . ($se->is_primary ? '<strong>Pemohon Utama</strong>' : 'Peserta') . '</td>';
+            $html .= '</tr>';
         }
-        $html .= '</tbody></table></div>';
+        $html .= '</tbody></table>';
+        $html .= '</div>';
 
         if (!empty($spd->approvalChains)) {
-            $html .= '<div class="section"><h2>Riwayat Persetujuan</h2><table><thead><tr><th>Level</th><th>Nama</th><th>Status</th><th>Tanggal</th><th>Alasan Penolakan</th></tr></thead><tbody>';
+            $html .= '<div class="section">';
+            $html .= '<div class="section-title">Riwayat Persetujuan</div>';
+            $html .= '<table>';
+            $html .= '<thead><tr><th>Level</th><th>Nama Approver</th><th>Role</th><th>Status</th><th>Tanggal</th><th>Catatan</th></tr></thead>';
+            $html .= '<tbody>';
+            
+            $approvers = [];
             foreach ($spd->approvalChains as $chain) {
                 $html .= '<tr>';
-                $html .= '<td>' . $chain->level_order . '</td>';
-                $html .= '<td>' . $h::escape($chain->approver?->user?->name ?? $chain->approver?->name ?? '-') . '</td>';
+                $html .= '<td>Level ' . $chain->level_order . '</td>';
+                $approverName = $chain->approver?->user?->name ?? $chain->approver?->name ?? '-';
+                $approverRole = $chain->approver?->role?->name ?? '-';
+                $html .= '<td>' . $h::escape($approverName) . '</td>';
+                $html .= '<td>' . $h::escape($approverRole) . '</td>';
                 $html .= '<td>' . $h::statusBadge($chain->status) . '</td>';
+                
                 $approveLog = $chain->logs ? $chain->logs->firstWhere('action', 'approved') : null;
                 $rejectLog = $chain->logs ? $chain->logs->firstWhere('action', 'rejected') : null;
                 $log = $rejectLog ?? $approveLog;
+                
                 $html .= '<td>' . ($log ? $h::formatDate($log->created_at) : '-') . '</td>';
                 $html .= '<td>' . ($rejectLog ? $h::escape($rejectLog->rejection_reason) : '-') . '</td>';
                 $html .= '</tr>';
+                
+                if ($chain->status === 'approved') {
+                    $approvers[] = [
+                        'name' => $approverName,
+                        'role' => $approverRole,
+                    ];
+                }
             }
-            $html .= '</tbody></table></div>';
+            $html .= '</tbody></table>';
+            $html .= '</div>';
+            
+            $primaryEmployee = $spd->employees->firstWhere('is_primary', true);
+            $requesterName = $primaryEmployee?->employee?->user?->name ?? $primaryEmployee?->employee?->name ?? 'Pemohon';
+            $requesterRole = $primaryEmployee?->employee?->role?->name ?? 'Karyawan';
+            
+            $html .= $h::signatureBoxes($approvers, $requesterName, $requesterRole);
         }
 
+        $html .= $h::footer();
         $html .= '</body></html>';
 
         return $html;
