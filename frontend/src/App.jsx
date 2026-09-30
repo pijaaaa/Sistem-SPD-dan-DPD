@@ -8,6 +8,7 @@ import MainLayout from './components/MainLayout';
 import Login from './pages/Login';
 import Departments from './pages/Departments';
 import Employees from './pages/Employees';
+import NotaCategories from './pages/NotaCategories';
 import Approvals from './pages/Approvals';
 import Delegations from './pages/Delegations';
 import DpdList from './pages/DpdList';
@@ -82,9 +83,14 @@ function AppRoutes() {
             <Departments />
           </ProtectedRoute>
         } />
-        <Route path="/employees" element={
+         <Route path="/employees" element={
           <ProtectedRoute requireRole="super_admin">
             <Employees />
+          </ProtectedRoute>
+        } />
+        <Route path="/nota-categories" element={
+          <ProtectedRoute requireRole="super_admin">
+            <NotaCategories />
           </ProtectedRoute>
         } />
       </Route>

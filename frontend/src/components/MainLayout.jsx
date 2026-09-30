@@ -13,7 +13,8 @@ import {
   Building2,
   LogOut,
   Menu,
-  X
+  X,
+  ReceiptText
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -37,6 +38,7 @@ export default function MainLayout() {
     { name: 'Pengaturan', path: '/settings', icon: Settings, roles: ['general_manager'] },
     { name: 'Departemen', path: '/departments', icon: Building2, roles: ['super_admin'] },
     { name: 'Karyawan', path: '/employees', icon: Users, roles: ['super_admin'] },
+    { name: 'Kategori Nota', path: '/nota-categories', icon: ReceiptText, roles: ['super_admin'] },
   ];
 
   const visibleNavItems = navItems.filter(item => 
@@ -53,7 +55,7 @@ export default function MainLayout() {
     {
       title: 'PENGATURAN',
       items: visibleNavItems.filter(item => 
-        ['Delegasi', 'Pengaturan', 'Departemen', 'Karyawan'].includes(item.name)
+        ['Delegasi', 'Pengaturan', 'Departemen', 'Karyawan', 'Kategori Nota'].includes(item.name)
       )
     }
   ];

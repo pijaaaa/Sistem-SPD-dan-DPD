@@ -7,11 +7,13 @@ import { ActionButton } from '../components/common/ActionButton';
 import { Modal } from '../components/common/Modal';
 import { FormField } from '../components/common/FormField';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useToast } from '../components/common/Toast';
 import { Clock, AlertTriangle } from 'lucide-react';
 import { formatDate } from '../utils/dateFormat';
 
 export default function DpdApprovals() {
   const queryClient = useQueryClient();
+  const { show: showToast, ToastComponent } = useToast();
   const [rejectChainId, setRejectChainId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -25,7 +27,13 @@ export default function DpdApprovals() {
 
   const approveMutation = useMutation({
     mutationFn: async (chainId) => api.post(`/api/dpd/approval/${chainId}/approve`),
-    onSuccess: () => queryClient.invalidateQueries(['dpd-my-approvals']),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['dpd-my-approvals']);
+      showToast('DPD berhasil disetujui', 'success');
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Gagal menyetujui DPD', 'error');
+    },
   });
 
   const [rejectError, setRejectError] = useState('');
@@ -35,9 +43,12 @@ export default function DpdApprovals() {
     onSuccess: () => {
       queryClient.invalidateQueries(['dpd-my-approvals']);
       handleCloseRejectModal();
+      showToast('DPD berhasil ditolak', 'success');
     },
     onError: (err) => {
-      setRejectError(err.response?.data?.message || err.response?.data?.errors?.reason?.[0] || 'Gagal menolak DPD');
+      const message = err.response?.data?.message || err.response?.data?.errors?.reason?.[0] || 'Gagal menolak DPD';
+      setRejectError(err.response?.data?.errors?.reason?.[0] || message);
+      showToast(message, 'error');
     },
   });
 
@@ -119,6 +130,7 @@ export default function DpdApprovals() {
 
   return (
     <div className="space-y-6">
+      {ToastComponent}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Approval DPD</h1>

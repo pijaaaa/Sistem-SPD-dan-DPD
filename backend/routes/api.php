@@ -8,6 +8,7 @@ use App\Http\Controllers\API\Master\RoleController;
 use App\Http\Controllers\API\Master\RoleHierarchyController;
 use App\Http\Controllers\API\Master\DepartmentController;
 use App\Http\Controllers\API\Master\EmployeeController;
+use App\Http\Controllers\API\Master\NotaCategoryController;
 use App\Http\Controllers\API\Master\DelegationController;
 use App\Http\Controllers\API\DpdController;
 use App\Http\Controllers\API\DpdApprovalController;
@@ -43,6 +44,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Penulisan (store/update/destroy) & role-only list hanya untuk super_admin.
         Route::get('/departments', [DepartmentController::class, 'index']);
         Route::get('/employees', [EmployeeController::class, 'index']);
+        Route::get('/nota-categories', [NotaCategoryController::class, 'index']);
 
         Route::middleware(['role:super_admin'])->group(function () {
             Route::get('/roles', [RoleController::class, 'index']);
@@ -50,6 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
             Route::apiResource('departments', DepartmentController::class)->except(['index', 'show']);
             Route::apiResource('employees', EmployeeController::class)->except(['index', 'show']);
+
+            Route::apiResource('nota-categories', NotaCategoryController::class)->except(['index', 'show']);
         });
     });
 
