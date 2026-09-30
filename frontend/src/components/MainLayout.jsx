@@ -60,9 +60,9 @@ export default function MainLayout() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <div className={clsx(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-emerald-900 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto",
+        "fixed inset-y-0 left-0 z-50 w-64 h-screen bg-emerald-900 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col h-full">
@@ -136,7 +136,7 @@ export default function MainLayout() {
         />
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 overflow-hidden">
         <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 shadow-sm">
           <div className="flex items-center gap-4">
             <button
