@@ -57,6 +57,9 @@ class DashboardController extends Controller
                         'rejected' => Dpd::where('status', 'rejected')->count(),
                     ],
                 ],
+                'monthly_stats' => $this->getMonthlyStats(),
+                'department_stats' => $this->getDepartmentStats(),
+                'recent_activities' => $this->getRecentActivities(),
             ];
         });
     }
@@ -83,6 +86,8 @@ class DashboardController extends Controller
                     'active_count' => $delegations->count(),
                     'list' => $delegations->take(5)->values(),
                 ],
+                'monthly_stats' => $this->getMonthlyStats(),
+                'department_stats' => $this->getDepartmentStats(),
             ];
         });
     }
@@ -100,6 +105,7 @@ class DashboardController extends Controller
                 'role' => $employee->role->name,
                 'user_stats' => $userStats,
                 'approvals' => $approvalStats,
+                'monthly_stats' => $this->getUserMonthlyStats($employee),
             ];
         });
     }
@@ -168,5 +174,103 @@ class DashboardController extends Controller
             'dpd_pending' => $dpdPending,
             'total_pending' => $spdPending + $dpdPending,
         ];
+    }
+
+    private function getMonthlyStats(): array
+    {
+        $months = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $monthStart = $date->copy()->startOfMonth();
+            $monthEnd = $date->copy()->endOfMonth();
+
+            $months[] = [
+                'month' => $date->format('M'),
+                'month_full' => $date->format('F Y'),
+                'spd' => Spd::whereBetween('created_at', [$monthStart, $monthEnd])->count(),
+                'dpd' => Dpd::whereBetween('created_at', [$monthStart, $monthEnd])->count(),
+            ];
+        }
+        return $months;
+    }
+
+    private function getUserMonthlyStats(Employee $employee): array
+    {
+        $spdIds = \DB::table('spd_employees')
+            ->where('employee_id', $employee->id)
+            ->pluck('spd_id');
+
+        $months = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $monthStart = $date->copy()->startOfMonth();
+            $monthEnd = $date->copy()->endOfMonth();
+
+            $months[] = [
+                'month' => $date->format('M'),
+                'month_full' => $date->format('F Y'),
+                'spd' => Spd::whereIn('id', $spdIds)->whereBetween('created_at', [$monthStart, $monthEnd])->count(),
+                'dpd' => Dpd::where('employee_id', $employee->id)->whereBetween('created_at', [$monthStart, $monthEnd])->count(),
+            ];
+        }
+        return $months;
+    }
+
+    private function getDepartmentStats(): array
+    {
+        $departments = Department::withCount(['employees'])->get();
+        
+        return $departments->map(function ($dept) {
+            $employeeIds = $dept->employees->pluck('id');
+            
+            $spdIds = \DB::table('spd_employees')
+                ->whereIn('employee_id', $employeeIds)
+                ->pluck('spd_id')
+                ->unique();
+
+            return [
+                'name' => $dept->name,
+                'employees' => $dept->employees_count,
+                'spd' => Spd::whereIn('id', $spdIds)->count(),
+                'dpd' => Dpd::whereIn('employee_id', $employeeIds)->count(),
+            ];
+        })->toArray();
+    }
+
+    private function getRecentActivities(): array
+    {
+        $recentSpd = Spd::with(['employees.employee.user'])
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(function ($spd) {
+                return [
+                    'type' => 'SPD',
+                    'title' => $spd->title ?? $spd->destination ?? 'SPD',
+                    'status' => $spd->status,
+                    'created_at' => $spd->created_at->diffForHumans(),
+                    'employee' => $spd->employees->first()?->employee?->user?->name ?? '-',
+                ];
+            });
+
+        $recentDpd = Dpd::with(['employee.user', 'spd'])
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(function ($dpd) {
+                return [
+                    'type' => 'DPD',
+                    'title' => 'DPD - ' . ($dpd->spd->destination ?? 'N/A'),
+                    'status' => $dpd->status,
+                    'created_at' => $dpd->created_at->diffForHumans(),
+                    'employee' => $dpd->employee->user->name ?? '-',
+                ];
+            });
+
+        return $recentSpd->concat($recentDpd)
+            ->sortByDesc('created_at')
+            ->take(10)
+            ->values()
+            ->toArray();
     }
 }

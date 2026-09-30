@@ -1,13 +1,9 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
+import { SkeletonTable } from './Loading';
 
 export const DataTable = ({ columns, data, isLoading, onEdit, onDelete, actionsSlot }) => {
-  if (isLoading) return (
-    <div className="py-12 text-center">
-      <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto mb-2" />
-      <p className="text-gray-500">Memuat data...</p>
-    </div>
-  );
+  if (isLoading) return <SkeletonTable rows={5} cols={columns.length + (onEdit || onDelete || actionsSlot ? 1 : 0)} />;
   
   if (!data || data.length === 0) return (
     <div className="py-12 text-center bg-white rounded-lg border border-gray-200">
@@ -22,18 +18,18 @@ export const DataTable = ({ columns, data, isLoading, onEdit, onDelete, actionsS
   );
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm bg-white">
+    <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm bg-white">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gradient-to-r from-emerald-50 to-teal-50">
             <tr>
               {(onEdit || onDelete || actionsSlot) && (
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Aksi
                 </th>
               )}
               {columns.map((col, i) => (
-                <th key={i} className="px-6 py-3.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                <th key={i} className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   {col.header}
                 </th>
               ))}
@@ -41,32 +37,34 @@ export const DataTable = ({ columns, data, isLoading, onEdit, onDelete, actionsS
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {data.map((row, i) => (
-              <tr key={row.id || i} className="hover:bg-gray-50/50 transition-colors">
+              <tr key={row.id || i} className="hover:bg-emerald-50/30 transition-colors">
                 {(onEdit || onDelete || actionsSlot) && (
-                  <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
-                    <div className="flex justify-start gap-2 flex-wrap">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex justify-start gap-2">
                       {actionsSlot && actionsSlot(row)}
                       {onEdit && (
                         <button 
                           onClick={() => onEdit(row)} 
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors font-medium text-xs"
+                          className="flex flex-col items-center justify-center gap-1 px-2.5 py-2 rounded-md border transition-all min-w-[65px] text-emerald-600 hover:bg-emerald-50 border-emerald-200"
                         >
-                          Edit
+                          <Edit2 className="w-4 h-4" />
+                          <span className="text-[9px] font-semibold leading-tight text-center">Edit</span>
                         </button>
                       )}
                       {onDelete && (
                         <button 
                           onClick={() => onDelete(row)} 
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium text-xs"
+                          className="flex flex-col items-center justify-center gap-1 px-2.5 py-2 rounded-md border transition-all min-w-[65px] text-red-600 hover:bg-red-50 border-red-200"
                         >
-                          Hapus
+                          <Trash2 className="w-4 h-4" />
+                          <span className="text-[9px] font-semibold leading-tight text-center">Hapus</span>
                         </button>
                       )}
                     </div>
                   </td>
                 )}
                 {columns.map((col, j) => (
-                  <td key={j} className="px-6 py-4 whitespace-nowrap text-gray-900">
+                  <td key={j} className="px-6 py-4 text-sm text-gray-900">
                     {col.cell ? col.cell(row) : row[col.accessor]}
                   </td>
                 ))}

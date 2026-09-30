@@ -30,10 +30,9 @@ export default function MainLayout() {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['super_admin', 'user', 'team_manager', 'manager', 'general_manager'] },
     { name: 'Buat SPD', path: '/spd/create', icon: FileText, roles: ['user', 'team_manager', 'manager'] },
     { name: 'Daftar SPD', path: '/spd', icon: FolderOpen, roles: ['user', 'team_manager', 'manager', 'general_manager', 'super_admin'] },
-    { name: 'SPD & DPD Saya', path: '/my-requests', icon: FolderOpen, roles: ['user', 'team_manager', 'manager', 'general_manager'] },
     { name: 'Approval SPD', path: '/approvals', icon: CheckSquare, roles: ['team_manager', 'manager', 'general_manager'] },
     { name: 'Approval DPD', path: '/dpd-approvals', icon: CheckSquare, roles: ['team_manager', 'manager', 'general_manager'] },
-    { name: 'DPD', path: '/dpd', icon: Upload, roles: ['user', 'team_manager', 'manager', 'general_manager'] },
+    { name: 'Daftar DPD', path: '/dpd', icon: Upload, roles: ['user', 'team_manager', 'manager', 'general_manager'] },
     { name: 'Delegasi', path: '/delegations', icon: Users, roles: ['general_manager'] },
     { name: 'Pengaturan', path: '/settings', icon: Settings, roles: ['general_manager'] },
     { name: 'Departemen', path: '/departments', icon: Building2, roles: ['super_admin'] },
@@ -48,7 +47,7 @@ export default function MainLayout() {
     {
       title: 'MENU UTAMA',
       items: visibleNavItems.filter(item => 
-        ['Dashboard', 'Buat SPD', 'Daftar SPD', 'SPD & DPD Saya', 'Approval SPD', 'Approval DPD', 'DPD'].includes(item.name)
+        ['Dashboard', 'Buat SPD', 'Daftar SPD', 'Approval SPD', 'Approval DPD', 'Daftar DPD'].includes(item.name)
       )
     },
     {
@@ -67,13 +66,11 @@ export default function MainLayout() {
       )}>
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-emerald-800/50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center">
-                <span className="text-emerald-900 font-bold text-lg">S</span>
-              </div>
-              <div>
-                <h1 className="text-white font-bold text-sm">SPD & DPD</h1>
-                <p className="text-emerald-200 text-xs">Sistem Perjalanan Dinas</p>
+            <div className="flex flex-col items-center gap-2">
+              <img src="/logo1-D2NqUgDL.png" alt="Logo" className="w-full h-auto object-contain px-4" />
+              <div className="text-center">
+                <h1 className="text-white font-bold text-lg">SPD & DPD</h1>
+                <p className="text-emerald-200 text-sm">Sistem Perjalanan Dinas</p>
               </div>
             </div>
           </div>

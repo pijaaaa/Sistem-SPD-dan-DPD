@@ -7,8 +7,9 @@ import { Modal, ConfirmDialog } from '../components/common/Modal';
 import { FormField } from '../components/common/FormField';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, MapPin, Calendar, Users, FileText, Download, CheckCircle2, AlertCircle, DollarSign } from 'lucide-react';
-
+import { ArrowLeft, MapPin, Calendar, Users, FileText, Download, CheckCircle2, AlertCircle, DollarSign } from 
+'lucide-react';
+import { PageLoader } from '../components/common/Loading';
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString('id-ID') : '-');
 
 export default function SpdDetail() {
@@ -77,20 +78,7 @@ export default function SpdDetail() {
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="py-12 text-center">
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded-lg w-64 mx-auto"></div>
-          <div className="space-y-2">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <PageLoader />;
 
   const isApprover = (spd.status === 'pending' || spd.status === 'draft');
   const showProgress = (spd.status === 'pending' || spd.status === 'rejected' || spd.status === 'approved');

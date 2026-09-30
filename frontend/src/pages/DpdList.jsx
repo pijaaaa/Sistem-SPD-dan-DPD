@@ -9,6 +9,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { Plus } from 'lucide-react';
 import { useToast } from '../components/common/Toast';
+import { formatDate } from '../utils/dateFormat';
 
 export default function DpdList() {
   const queryClient = useQueryClient();
@@ -38,7 +39,7 @@ export default function DpdList() {
     { header: 'SPD', cell: row => <span className="text-sm text-gray-600">{row.spd?.spd_number}</span> },
     { header: 'Tujuan', cell: row => row.spd?.destination },
     { header: 'Pembuat', cell: row => <span className="text-sm">{row.employee?.user?.name}</span> },
-    { header: 'Tanggal Pengajuan', cell: row => <span className="text-sm">{row.submission_date}</span> },
+    { header: 'Tanggal Pengajuan', cell: row => <span className="text-sm">{formatDate(row.submission_date)}</span> },
     { header: 'Total', cell: row => <span className="font-medium text-emerald-700">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(row.total_nominal || 0)}</span> },
     { header: 'Status', cell: row => <StatusBadge status={row.status} /> },
   ];

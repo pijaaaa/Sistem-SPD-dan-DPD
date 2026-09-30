@@ -8,6 +8,7 @@ import { Modal } from '../components/common/Modal';
 import { FormField } from '../components/common/FormField';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Clock, AlertTriangle } from 'lucide-react';
+import { formatDate } from '../utils/dateFormat';
 
 export default function DpdApprovals() {
   const queryClient = useQueryClient();
@@ -178,7 +179,7 @@ export default function DpdApprovals() {
               <div className="text-sm space-y-1">
                 <p><span className="text-gray-600">No. SPD:</span> <span className="font-medium">{detailChain.dpd?.spd?.spd_number}</span></p>
                 <p><span className="text-gray-600">Tujuan:</span> <span className="font-medium">{detailChain.dpd?.spd?.destination}</span></p>
-                <p><span className="text-gray-600">Periode:</span> {detailChain.dpd?.spd?.start_date} s/d {detailChain.dpd?.spd?.end_date}</p>
+                <p><span className="text-gray-600">Periode:</span> {formatDate(detailChain.dpd?.spd?.start_date)} s/d {formatDate(detailChain.dpd?.spd?.end_date)}</p>
                 <p><span className="text-gray-600">Total Nominal:</span> <span className="font-medium text-emerald-700">{formatIDR(detailChain.dpd?.total_nominal)}</span></p>
               </div>
             </div>

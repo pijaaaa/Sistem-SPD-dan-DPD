@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
-import { ActionButton } from '../components/common/ActionButton';
+import { useToast } from '../components/common/Toast';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { ActionButton } from '../components/common/ActionButton';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Filter } from 'lucide-react';
-import { useToast } from '../components/common/Toast';
+import { formatDate } from '../utils/dateFormat';
 
 export default function SpdList() {
   const queryClient = useQueryClient();
@@ -43,8 +44,7 @@ export default function SpdList() {
     { header: 'No. SPD', cell: row => <span className="font-medium text-gray-900">{row.spd_number}</span> },
     { header: 'Tujuan', cell: row => row.destination },
     { header: 'Periode', cell: row => {
-      const s = new Date(row.start_date), e = new Date(row.end_date);
-      return <span className="text-sm">{s.toLocaleDateString('id-ID')} s/d {e.toLocaleDateString('id-ID')}</span>;
+      return <span className="text-sm">{formatDate(row.start_date)} s/d {formatDate(row.end_date)}</span>;
     }},
     { header: 'Departemen', cell: row => <span className="inline-flex items-center px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium">{row.department?.code || '-'}</span> },
     { header: 'Lintas Dept', cell: row => row.is_cross_department ? <span className="text-amber-600 text-xs font-medium">Ya</span> : <span className="text-gray-400 text-xs">Tidak</span> },

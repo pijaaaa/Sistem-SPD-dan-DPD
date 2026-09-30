@@ -4,12 +4,12 @@ import { useForm } from 'react-hook-form';
 import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
-import { ActionButton } from '../components/common/ActionButton';
 import { FormField } from '../components/common/FormField';
 import { Modal, ConfirmDialog } from '../components/common/Modal';
-import { StatusBadge } from '../components/common/StatusBadge';
 import { useToast } from '../components/common/Toast';
+import { ActionButton } from '../components/common/ActionButton';
 import { Plus } from 'lucide-react';
+import { formatDate } from '../utils/dateFormat';
 
 export default function Delegations() {
   const queryClient = useQueryClient();
@@ -121,8 +121,8 @@ export default function Delegations() {
       header: 'Delegate (Pengganti)',
       cell: row => row.delegate?.name || row.delegate_id,
     },
-    { header: 'Mulai', accessor: 'start_date' },
-    { header: 'Berakhir', accessor: 'end_date' },
+    { header: 'Mulai', cell: row => formatDate(row.start_date) },
+    { header: 'Berakhir', cell: row => formatDate(row.end_date) },
     { header: 'Status', cell: row => (
       row.is_active
         ? <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Aktif</span>

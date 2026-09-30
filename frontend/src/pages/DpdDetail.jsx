@@ -6,6 +6,7 @@ import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { Modal } from '../components/common/Modal';
+import { PageLoader } from '../components/common/Loading';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString('id-ID') : '-');
 const formatCurrency = (v) =>
@@ -68,7 +69,7 @@ export default function DpdDetail() {
     },
   });
 
-  if (isLoading) return <div className="py-8 text-center">Memuat detail DPD...</div>;
+  if (isLoading) return <PageLoader />;
 
   const dpd = data.dpd;
   const tripDays = data.trip_days;

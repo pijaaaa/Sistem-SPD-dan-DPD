@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { DataTable } from '../components/common/DataTable';
+import { Modal } from '../components/common/Modal';
+import { FormField } from '../components/common/FormField';
 import { Button } from '../components/common/Button';
 import { ActionButton } from '../components/common/ActionButton';
-import { Modal, ConfirmDialog } from '../components/common/Modal';
-import { FormField } from '../components/common/FormField';
+import { useToast } from '../components/common/Toast';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { formatDate } from '../utils/dateFormat';
 import { CheckCircle2, Clock } from 'lucide-react';
 
 export default function Approvals() {
@@ -56,7 +58,7 @@ export default function Approvals() {
   const columns = [
     { header: 'No. SPD', cell: row => <span className="font-medium text-gray-900">{row.spd?.spd_number}</span> },
     { header: 'Tujuan', cell: row => row.spd?.destination },
-    { header: 'Tanggal', cell: row => <span className="text-sm">{`${row.spd?.start_date} s/d ${row.spd?.end_date}`}</span> },
+    { header: 'Tanggal', cell: row => <span className="text-sm">{`${formatDate(row.spd?.start_date)} s/d ${formatDate(row.spd?.end_date)}`}</span> },
     { header: 'Karyawan', cell: row => row.spdEmployee?.employee?.name || '(Grup/Semua)' },
     { header: 'Level', cell: row => (
       <span className="inline-flex items-center px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium">

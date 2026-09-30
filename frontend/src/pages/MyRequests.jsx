@@ -6,11 +6,10 @@ import { DataTable } from '../components/common/DataTable';
 import { Button } from '../components/common/Button';
 import { ActionButton } from '../components/common/ActionButton';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { formatDate } from '../utils/dateFormat';
 
 const periodeCell = (r) => {
-  const s = new Date(r.start_date);
-  const e = new Date(r.end_date);
-  return s.toLocaleDateString('id-ID') + ' s/d ' + e.toLocaleDateString('id-ID');
+  return formatDate(r.start_date) + ' s/d ' + formatDate(r.end_date);
 };
 
 export default function MyRequests() {
