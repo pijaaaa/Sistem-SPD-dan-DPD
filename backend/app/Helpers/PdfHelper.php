@@ -48,7 +48,7 @@ class PdfHelper
             font-family: "DejaVu Sans", "Arial", sans-serif;
             margin: 0;
             padding: 0;
-            color: #1f2937;
+            color: #000000;
             font-size: 11pt;
             line-height: 1.5;
         }
@@ -59,6 +59,27 @@ class PdfHelper
             padding: 0;
             margin-bottom: 25px;
             background: #ffffff;
+        }
+
+        /* Tabel di dalam header tidak pakai border/background dari style tabel global */
+        .header table {
+            width: 100%;
+            margin: 0;
+            border: none;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .header td {
+            padding: 0;
+            border: none;
+            background: transparent;
+            vertical-align: middle;
+        }
+
+        .header-logo {
+            height: 70px;
+            width: auto;
         }
         
         .company-name {
@@ -73,10 +94,11 @@ class PdfHelper
             text-align: center;
             font-size: 14pt;
             font-weight: bold;
-            color: #065f46;
+            color: #000000;
             margin: 20px 0;
             padding: 10px;
-            border-bottom: 3px solid #10b981;
+            border-top: 1px solid #000000;
+            border-bottom: 1px solid #000000;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
@@ -85,18 +107,16 @@ class PdfHelper
             margin-bottom: 20px;
             padding: 15px;
             background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-left: 4px solid #10b981;
-            border-radius: 6px;
+            border: 1px solid #9ca3af;
         }
         
         .section-title {
             font-size: 12pt;
             font-weight: bold;
-            color: #065f46;
+            color: #000000;
             margin: 0 0 12px 0;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #d1fae5;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #000000;
         }
         
         .info-row {
@@ -107,15 +127,15 @@ class PdfHelper
         
         .info-label {
             display: table-cell;
-            font-weight: 600;
-            color: #374151;
+            font-weight: bold;
+            color: #000000;
             width: 180px;
             padding: 4px 0;
         }
         
         .info-value {
             display: table-cell;
-            color: #1f2937;
+            color: #000000;
             padding: 4px 0;
         }
         
@@ -127,17 +147,18 @@ class PdfHelper
         }
         
         th {
-            background: linear-gradient(to bottom, #10b981, #059669);
-            color: white;
+            background: #e5e7eb;
+            color: #000000;
             padding: 10px 8px;
             text-align: left;
-            font-weight: 600;
-            border: 1px solid #059669;
+            font-weight: bold;
+            border: 1px solid #000000;
         }
         
         td {
             padding: 8px;
-            border: 1px solid #d1d5db;
+            border: 1px solid #6b7280;
+            color: #000000;
             background: #ffffff;
         }
         
@@ -146,49 +167,43 @@ class PdfHelper
         }
         
         .total-row td {
-            background: #ecfdf5 !important;
+            background: #f3f4f6 !important;
             font-weight: bold;
-            color: #065f46;
-            border-top: 2px solid #10b981;
+            color: #000000;
+            border-top: 2px solid #000000;
         }
         
         .badge {
             display: inline-block;
             padding: 3px 10px;
-            border-radius: 12px;
             font-size: 9pt;
-            font-weight: 600;
+            font-weight: bold;
+            color: #000000;
             text-transform: uppercase;
+            border: 1px solid #000000;
+            background: #ffffff;
         }
         
         .status-pending {
-            background: #fef3c7;
-            color: #92400e;
-            border: 1px solid #fbbf24;
+            border-style: dashed;
         }
         
         .status-approved {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #10b981;
+            background: #e5e7eb;
         }
         
         .status-rejected {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #ef4444;
+            background: #ffffff;
+            text-decoration: line-through;
         }
         
         .status-draft {
-            background: #f3f4f6;
-            color: #374151;
-            border: 1px solid #9ca3af;
+            border-color: #6b7280;
+            color: #4b5563;
         }
         
         .status-submitted {
-            background: #dbeafe;
-            color: #1e40af;
-            border: 1px solid #3b82f6;
+            border-style: double;
         }
         
         .signature-section {
@@ -206,10 +221,9 @@ class PdfHelper
             display: table-cell;
             width: 48%;
             padding: 15px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
+            border: 1px solid #6b7280;
             text-align: center;
-            background: #fafafa;
+            background: #ffffff;
         }
         
         .signature-box:first-child {
@@ -218,22 +232,22 @@ class PdfHelper
         
         .signature-title {
             font-weight: bold;
-            color: #374151;
+            color: #000000;
             margin-bottom: 60px;
             font-size: 10pt;
         }
         
         .signature-name {
-            font-weight: 600;
-            color: #065f46;
-            border-top: 2px solid #1f2937;
+            font-weight: bold;
+            color: #000000;
+            border-top: 1px solid #000000;
             padding-top: 8px;
             margin-top: 5px;
         }
         
         .signature-role {
             font-size: 9pt;
-            color: #6b7280;
+            color: #4b5563;
             font-style: italic;
         }
         
@@ -245,9 +259,9 @@ class PdfHelper
             height: 30px;
             text-align: center;
             font-size: 8pt;
-            color: #9ca3af;
+            color: #6b7280;
             padding: 10px 0;
-            border-top: 1px solid #e5e7eb;
+            border-top: 1px solid #9ca3af;
             background: #ffffff;
         }
         
@@ -257,17 +271,16 @@ class PdfHelper
             left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 80pt;
-            color: rgba(16, 185, 129, 0.08);
+            color: rgba(0, 0, 0, 0.06);
             font-weight: bold;
             z-index: -1;
             text-transform: uppercase;
         }
         
         .divider {
-            height: 2px;
-            background: linear-gradient(to right, #10b981, #059669);
+            height: 1px;
+            background: #000000;
             margin: 20px 0;
-            border-radius: 2px;
         }
     </style>
 </head>
@@ -277,7 +290,7 @@ class PdfHelper
     public static function header(string $docType = 'SPD'): string
     {
         $logoLeftPath = public_path('assets/skkmigaslogo.png');
-        $logoRightPath = public_path('assets/logo-right.png');
+        $logoRightPath = public_path('assets/bsplogo.png');
         
         $logoLeft = '';
         if (file_exists($logoLeftPath)) {
@@ -293,28 +306,28 @@ class PdfHelper
 
         return '
         <div class="header">
-            <table style="width: 100%; border-collapse: collapse;">
+            <table>
                 <tr>
-                    <td style="width: 15%; text-align: left; vertical-align: top; padding: 0;">
-                        ' . ($logoLeft ? '<img src="' . $logoLeft . '" alt="SKK Migas" style="width: 100%; max-width: 100px; height: auto;">' : '') . '
+                    <td style="width: 20%; text-align: left;">
+                        ' . ($logoLeft ? '<img src="' . $logoLeft . '" alt="SKK Migas" class="header-logo">' : '') . '
                     </td>
-                    <td style="width: 70%; text-align: center; vertical-align: middle; padding: 0 20px;">
+                    <td style="width: 60%; text-align: center;">
                         <div class="company-name">PT. BUMI SIAK PUSAKO</div>
                         <div style="font-size: 9pt; color: #374151; line-height: 1.4; margin-top: 4px;">
                             Gedung Surya Dumai Lt. 6 Jalan Jendral Sudirman No. 395<br>
                             Pekanbaru 28116 - INDONESIA
                         </div>
                     </td>
-                    <td style="width: 15%; text-align: right; vertical-align: top; padding: 0;">
-                        ' . ($logoRight ? '<img src="' . $logoRight . '" alt="Logo" style="width: 180%; max-width: 180px; height: auto;">' : '') . '
+                    <td style="width: 15%; text-align: right;">
+                        ' . ($logoRight ? '<img src="' . $logoRight . '" alt="Logo" class="header-logo">' : '') . '
                     </td>
                 </tr>
             </table>
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #1f2937;">
-                <table style="width: 100%; border-collapse: collapse;">
+            <div style="margin-top: 10px; padding-top: 6px; border-top: 2px solid #1f2937;">
+                <table>
                     <tr>
-                        <td style="text-align: left; font-size: 8pt; color: #374151;">Telepon: (62-761) 855764</td>
-                        <td style="text-align: right; font-size: 8pt; color: #374151;">Facsimile: (62-761) 855765</td>
+                        <td style="width: 50%; text-align: left; font-size: 8pt; color: #374151;">Telepon: (62-761) 855764</td>
+                        <td style="width: 50%; text-align: right; font-size: 8pt; color: #374151;">Facsimile: (62-761) 855765</td>
                     </tr>
                 </table>
             </div>
