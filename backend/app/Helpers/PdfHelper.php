@@ -45,19 +45,19 @@ class PdfHelper
         }
         
         body { 
-            font-family: "DejaVu Sans", "Arial", sans-serif;
+            font-family: "Times New Roman", "DejaVu Serif", serif;
             margin: 0;
             padding: 0;
             color: #000000;
             font-size: 11pt;
-            line-height: 1.5;
+            line-height: 1.3;
         }
         
         .header {
             border: none;
             margin: 0;
             padding: 0;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             background: #ffffff;
         }
 
@@ -83,44 +83,44 @@ class PdfHelper
         }
         
         .company-name {
-            font-size: 18pt;
+            font-size: 16pt;
             font-weight: bold;
             color: #1f2937;
             margin: 0;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
         
         .doc-title {
             text-align: center;
-            font-size: 14pt;
+            font-size: 13pt;
             font-weight: bold;
             color: #000000;
-            margin: 20px 0;
-            padding: 10px;
+            margin: 15px 0 10px 0;
+            padding: 8px;
             border-top: 1px solid #000000;
             border-bottom: 1px solid #000000;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
         
         .section {
-            margin-bottom: 20px;
-            padding: 15px;
+            margin-bottom: 12px;
+            padding: 10px;
             background: #ffffff;
             border: 1px solid #9ca3af;
         }
         
         .section-title {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: bold;
             color: #000000;
-            margin: 0 0 12px 0;
-            padding-bottom: 6px;
+            margin: 0 0 8px 0;
+            padding-bottom: 4px;
             border-bottom: 1px solid #000000;
         }
         
         .info-row {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             display: table;
             width: 100%;
         }
@@ -130,33 +130,33 @@ class PdfHelper
             font-weight: bold;
             color: #000000;
             width: 180px;
-            padding: 4px 0;
+            padding: 2px 0;
         }
         
         .info-value {
             display: table-cell;
             color: #000000;
-            padding: 4px 0;
+            padding: 2px 0;
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 8px;
             font-size: 10pt;
         }
         
         th {
             background: #e5e7eb;
             color: #000000;
-            padding: 10px 8px;
+            padding: 6px 8px;
             text-align: left;
             font-weight: bold;
             border: 1px solid #000000;
         }
         
         td {
-            padding: 8px;
+            padding: 5px 8px;
             border: 1px solid #6b7280;
             color: #000000;
             background: #ffffff;
@@ -216,6 +216,23 @@ class PdfHelper
             margin-top: 30px;
             page-break-inside: avoid;
         }
+
+        /* Tabel tanda tangan tanpa border */
+        .sig-table {
+            width: 100%;
+            margin-top: 15px;
+            border: none;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .sig-table td {
+            padding: 20px 15px;
+            border: none;
+            background: transparent;
+            text-align: center;
+            vertical-align: top;
+        }
         
         .signature-container {
             display: table;
@@ -226,21 +243,18 @@ class PdfHelper
         .signature-box {
             display: table-cell;
             width: 48%;
-            padding: 15px;
-            border: 1px solid #6b7280;
+            padding: 20px 15px;
+            border: none;
             text-align: center;
             background: #ffffff;
-        }
-        
-        .signature-box:first-child {
-            margin-right: 4%;
+            vertical-align: top;
         }
         
         .signature-title {
             font-weight: bold;
             color: #000000;
-            margin-bottom: 60px;
-            font-size: 10pt;
+            margin-bottom: 120px;
+            font-size: 11pt;
         }
         
         .signature-name {
@@ -252,9 +266,19 @@ class PdfHelper
         }
         
         .signature-role {
-            font-size: 9pt;
+            font-size: 10pt;
             color: #4b5563;
             font-style: italic;
+            margin-top: 3px;
+        }
+        
+        .signature-box-single {
+            width: 100%;
+            padding: 20px 15px;
+            border: none;
+            text-align: center;
+            background: #ffffff;
+            margin-top: 15px;
         }
         
         .footer {
@@ -286,7 +310,7 @@ class PdfHelper
         .divider {
             height: 1px;
             background: #000000;
-            margin: 20px 0;
+            margin: 15px 0;
         }
     </style>
 </head>
@@ -396,5 +420,132 @@ class PdfHelper
         $html .= '</div>';
         
         return $html;
+    }
+
+    public static function signatureBoxDpd(string $requesterName, string $requesterDept): string
+    {
+        $html = '<div class="signature-section">';
+        $html .= '<div class="section-title">Tanda Tangan</div>';
+        $html .= '<div class="signature-box-single">';
+        $html .= '<div class="signature-title">Pemohon Utama</div>';
+        $html .= '<div class="signature-name">' . self::escape($requesterName) . '</div>';
+        $html .= '<div class="signature-role">' . self::escape($requesterDept) . '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+        
+        return $html;
+    }
+
+    public static function signatureBoxesSpd(string $requesterName, string $requesterDept, string $requesterRoleName, int $requesterDeptId): string
+    {
+        $html = '<div class="signature-section">';
+        $html .= '<div class="section-title">Tanda Tangan & Persetujuan</div>';
+        
+        // Cek level pemohon
+        $roleLevel = self::getRoleLevel($requesterRoleName);
+        
+        if ($roleLevel == 1) {
+            // User level 1: 2 kolom di atas, manager di tengah bawah
+            $teamManager = self::getApproverByRole($requesterDeptId, 'team_manager');
+            $manager = self::getApproverByRole($requesterDeptId, 'manager');
+            
+            // Row 1 - Atas (2 kolom)
+            $html .= '<table class="sig-table"><tr>';
+            
+            $html .= '<td style="width:50%;">';
+            $html .= '<div class="signature-title">Pemohon Utama</div>';
+            $html .= '<div class="signature-name">' . self::escape($requesterName) . '</div>';
+            $html .= '<div class="signature-role">' . self::escape($requesterDept) . '</div>';
+            $html .= '</td>';
+            
+            $html .= '<td style="width:50%;">';
+            $html .= '<div class="signature-title">Team Manager</div>';
+            $html .= '<div class="signature-name">' . self::escape($teamManager['name']) . '</div>';
+            $html .= '<div class="signature-role">' . self::escape($teamManager['dept']) . '</div>';
+            $html .= '</td>';
+            
+            $html .= '</tr></table>';
+            
+            // Row 2 - Bawah (Manager tepat di tengah)
+            $html .= '<table class="sig-table"><tr>';
+            $html .= '<td style="width:25%;"></td>';
+            $html .= '<td style="width:50%;">';
+            $html .= '<div class="signature-title">Manager</div>';
+            $html .= '<div class="signature-name">' . self::escape($manager['name']) . '</div>';
+            $html .= '<div class="signature-role">' . self::escape($manager['dept']) . '</div>';
+            $html .= '</td>';
+            $html .= '<td style="width:25%;"></td>';
+            $html .= '</tr></table>';
+            
+        } elseif ($roleLevel == 2) {
+            // Team Manager: 2 kolom (kiri kanan)
+            $manager = self::getApproverByRole($requesterDeptId, 'manager');
+            
+            $html .= '<table class="sig-table"><tr>';
+            
+            $html .= '<td style="width:50%;">';
+            $html .= '<div class="signature-title">Pemohon Utama (Team Manager)</div>';
+            $html .= '<div class="signature-name">' . self::escape($requesterName) . '</div>';
+            $html .= '<div class="signature-role">' . self::escape($requesterDept) . '</div>';
+            $html .= '</td>';
+            
+            $html .= '<td style="width:50%;">';
+            $html .= '<div class="signature-title">Manager</div>';
+            $html .= '<div class="signature-name">' . self::escape($manager['name']) . '</div>';
+            $html .= '<div class="signature-role">' . self::escape($manager['dept']) . '</div>';
+            $html .= '</td>';
+            
+            $html .= '</tr></table>';
+            
+        } else {
+            // Manager/GM: 1 kolom (kanan)
+            $html .= '<table class="sig-table"><tr>';
+            $html .= '<td style="width:50%;"></td>';
+            $html .= '<td style="width:50%;">';
+            $html .= '<div class="signature-title">Pemohon Utama</div>';
+            $html .= '<div class="signature-name">' . self::escape($requesterName) . '</div>';
+            $html .= '<div class="signature-role">' . self::escape($requesterDept) . '</div>';
+            $html .= '</td>';
+            $html .= '</tr></table>';
+        }
+        
+        $html .= '</div>';
+        
+        return $html;
+    }
+
+    private static function getRoleLevel(string $roleName): int
+    {
+        $levels = [
+            'user' => 1,
+            'team_manager' => 2,
+            'manager' => 4,
+            'general_manager' => 5,
+            'super_admin' => 6,
+        ];
+        
+        return $levels[$roleName] ?? 0;
+    }
+
+    private static function getApproverByRole(int $departmentId, string $roleName): array
+    {
+        $role = \App\Models\Role::where('name', $roleName)->first();
+        if (!$role) {
+            return ['name' => ucfirst(str_replace('_', ' ', $roleName)), 'dept' => '-'];
+        }
+        
+        $employee = \App\Models\Employee::where('department_id', $departmentId)
+            ->where('role_id', $role->id)
+            ->with(['user', 'department'])
+            ->first();
+        
+        if ($employee) {
+            return [
+                'name' => $employee->user->name ?? $employee->name ?? ucfirst(str_replace('_', ' ', $roleName)),
+                'dept' => $employee->department->name ?? '-',
+            ];
+        }
+        
+        return ['name' => ucfirst(str_replace('_', ' ', $roleName)), 'dept' => '-'];
     }
 }

@@ -213,10 +213,10 @@ class SpdController extends Controller
         
         $html .= '<div class="doc-title">SURAT PERJALANAN DINAS (SPD)</div>';
 
+        // Informasi SPD - Status dihapus
         $html .= '<div class="section">';
         $html .= '<div class="section-title">Informasi SPD</div>';
         $html .= '<div class="info-row"><div class="info-label">No. SPD:</div><div class="info-value">' . $h::escape($spd->spd_number) . '</div></div>';
-        $html .= '<div class="info-row"><div class="info-label">Status:</div><div class="info-value">' . $h::statusBadge($spd->status) . '</div></div>';
         $html .= '<div class="info-row"><div class="info-label">Tujuan:</div><div class="info-value">' . $h::escape($spd->destination) . '</div></div>';
         $html .= '<div class="info-row"><div class="info-label">Keperluan:</div><div class="info-value">' . $h::escape($spd->purpose) . '</div></div>';
         $html .= '<div class="info-row"><div class="info-label">Periode:</div><div class="info-value">' . $h::formatDate($spd->start_date) . ' s/d ' . $h::formatDate($spd->end_date) . '</div></div>';
@@ -224,62 +224,49 @@ class SpdController extends Controller
         $html .= '<div class="info-row"><div class="info-label">Lintas Departemen:</div><div class="info-value">' . ($spd->is_cross_department ? 'Ya' : 'Tidak') . '</div></div>';
         $html .= '</div>';
 
-        $html .= '<div class="section">';
-        $html .= '<div class="section-title">Peserta Perjalanan Dinas</div>';
-        $html .= '<table>';
-        $html .= '<thead><tr><th>Nama</th><th>Role</th><th>Departemen</th><th>Status</th></tr></thead>';
-        $html .= '<tbody>';
+        // Pemohon Utama dan Pengikut - Pisah section
+        $primary = null;
+        $followers = [];
+        
         foreach ($spd->employees as $se) {
-            $html .= '<tr>';
-            $html .= '<td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
-            $html .= '<td>' . $h::escape($se->employee?->role?->name ?? '-') . '</td>';
-            $html .= '<td>' . $h::escape($se->employee?->department?->name ?? '-') . '</td>';
-            $html .= '<td>' . ($se->is_primary ? '<strong>Pemohon Utama</strong>' : 'Peserta') . '</td>';
-            $html .= '</tr>';
+            if ($se->is_primary) {
+                $primary = $se;
+            } else {
+                $followers[] = $se;
+            }
         }
-        $html .= '</tbody></table>';
-        $html .= '</div>';
 
-        if (!empty($spd->approvalChains)) {
+        if ($primary) {
             $html .= '<div class="section">';
-            $html .= '<div class="section-title">Riwayat Persetujuan</div>';
-            $html .= '<table>';
-            $html .= '<thead><tr><th>Level</th><th>Nama Approver</th><th>Role</th><th>Status</th><th>Tanggal</th><th>Catatan</th></tr></thead>';
-            $html .= '<tbody>';
-            
-            $approvers = [];
-            foreach ($spd->approvalChains as $chain) {
+            $html .= '<div class="section-title">Pemohon Utama</div>';
+            $html .= '<div class="info-row"><div class="info-label">Nama:</div><div class="info-value">' . $h::escape($primary->employee?->user?->name ?? $primary->employee?->name ?? '-') . '</div></div>';
+            $html .= '<div class="info-row"><div class="info-label">Departemen:</div><div class="info-value">' . $h::escape($primary->employee?->department?->name ?? '-') . '</div></div>';
+            $html .= '</div>';
+        }
+
+        if (!empty($followers)) {
+            $html .= '<div class="section">';
+            $html .= '<div class="section-title">Pengikut Perjalanan Dinas</div>';
+            $html .= '<table><thead><tr><th>Nama</th><th>Departemen</th></tr></thead><tbody>';
+            foreach ($followers as $se) {
                 $html .= '<tr>';
-                $html .= '<td>Level ' . $chain->level_order . '</td>';
-                $approverName = $chain->approver?->user?->name ?? $chain->approver?->name ?? '-';
-                $approverRole = $chain->approver?->role?->name ?? '-';
-                $html .= '<td>' . $h::escape($approverName) . '</td>';
-                $html .= '<td>' . $h::escape($approverRole) . '</td>';
-                $html .= '<td>' . $h::statusBadge($chain->status) . '</td>';
-                
-                $approveLog = $chain->logs ? $chain->logs->firstWhere('action', 'approved') : null;
-                $rejectLog = $chain->logs ? $chain->logs->firstWhere('action', 'rejected') : null;
-                $log = $rejectLog ?? $approveLog;
-                
-                $html .= '<td>' . ($log ? $h::formatDate($log->created_at) : '-') . '</td>';
-                $html .= '<td>' . ($rejectLog ? $h::escape($rejectLog->rejection_reason) : '-') . '</td>';
+                $html .= '<td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
+                $html .= '<td>' . $h::escape($se->employee?->department?->name ?? '-') . '</td>';
                 $html .= '</tr>';
-                
-                if ($chain->status === 'approved') {
-                    $approvers[] = [
-                        'name' => $approverName,
-                        'role' => $approverRole,
-                    ];
-                }
             }
             $html .= '</tbody></table>';
             $html .= '</div>';
+        }
+
+        // Riwayat persetujuan dihapus
+        // Signature dengan logika kondisional berdasarkan level
+        if ($primary) {
+            $requesterName = $primary->employee?->user?->name ?? $primary->employee?->name ?? 'Pemohon';
+            $requesterDept = $primary->employee?->department?->name ?? 'Departemen';
+            $requesterRoleName = $primary->employee?->role?->name ?? 'user';
+            $requesterDeptId = $primary->employee?->department_id ?? 0;
             
-            $primaryEmployee = $spd->employees->firstWhere('is_primary', true);
-            $requesterName = $primaryEmployee?->employee?->user?->name ?? $primaryEmployee?->employee?->name ?? 'Pemohon';
-            $requesterRole = $primaryEmployee?->employee?->role?->name ?? 'Karyawan';
-            
-            $html .= $h::signatureBoxes($approvers, $requesterName, $requesterRole);
+            $html .= $h::signatureBoxesSpd($requesterName, $requesterDept, $requesterRoleName, $requesterDeptId);
         }
 
         $html .= $h::footer();

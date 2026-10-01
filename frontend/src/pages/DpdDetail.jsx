@@ -65,7 +65,7 @@ export default function DpdDetail() {
       const url = window.URL.createObjectURL(blob);
 
       const disposition = res.headers['content-disposition'];
-      let filename = `DPD_${dpd?.dpd_number}.pdf`;
+      let filename = `DPD_${data?.dpd?.dpd_number}.pdf`;
       if (disposition && disposition.indexOf('filename=') !== -1) {
         const match = disposition.match(/filename=(.+)/);
         if (match) filename = match[1].trim();
@@ -87,30 +87,6 @@ export default function DpdDetail() {
     },
   });
 
-  if (isLoading) return <PageLoader />;
-
-  const dpd = data.dpd;
-  const tripDays = data.trip_days;
-
-  if (!dpd) return <div className="py-12 text-center">Data DPD tidak ditemukan.</div>;
-
-  const isCreator = dpd.employee_id === user?.employee?.id;
-  const isParticipant = isCreator || (dpd.spd?.employees || []).some(e => e.employee_id === user?.employee?.id);
-
-  const rejectionNote = React.useMemo(() => {
-    if (dpd.status !== 'revisi' || !dpd.approvalChains) return null;
-    for (const chain of dpd.approvalChains) {
-      const rejectLog = chain.logs?.find((log) => log.action === 'rejected');
-      if (rejectLog?.rejection_reason) {
-        return {
-          reason: rejectLog.rejection_reason,
-          approver: chain.approver?.user?.name || chain.approver?.name || '-',
-        };
-      }
-    }
-    return null;
-  }, [dpd]);
-
   const handleOpenSubmit = async () => {
     try {
       await validateMutation.mutateAsync();
@@ -131,6 +107,16 @@ export default function DpdDetail() {
   const closeFilePreview = () => {
     setFilePreview({ isOpen: false, url: null, name: null });
   };
+
+  if (isLoading) return <PageLoader />;
+
+  const dpd = data?.dpd;
+  const tripDays = data?.trip_days;
+
+  if (!dpd) return <div className="py-12 text-center">Data DPD tidak ditemukan.</div>;
+
+  const isCreator = dpd.employee_id === user?.employee?.id;
+  const isParticipant = isCreator || (dpd.spd?.employees || []).some(e => e.employee_id === user?.employee?.id);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -207,17 +193,6 @@ export default function DpdDetail() {
               <p className="text-xs text-gray-500 uppercase tracking-wider">Pengaju</p>
               <p className="font-medium text-gray-900">{dpd.employee?.user?.name || '-'}</p>
             </div>
-            {rejectionNote && (
-              <div className="md:col-span-2 space-y-1">
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Catatan Revisi (Alasan Penolakan)</p>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-500">
-                    Ditolak oleh: <span className="font-medium text-gray-700">{rejectionNote.approver}</span>
-                  </p>
-                  <p className="text-sm text-amber-900 mt-0.5">{rejectionNote.reason}</p>
-                </div>
-              </div>
-            )}
             {dpd.spm_date && (
               <div className="space-y-1">
                 <p className="text-xs text-gray-500 uppercase tracking-wider">Tanggal SPM</p>

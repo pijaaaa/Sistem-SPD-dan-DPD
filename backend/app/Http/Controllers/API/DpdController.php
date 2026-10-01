@@ -471,10 +471,10 @@ class DpdController extends Controller
         
         $html .= '<div class="doc-title">DOKUMENTASI PERJALANAN DINAS (DPD)</div>';
 
+        // Informasi DPD - Status dihapus
         $html .= '<div class="section">';
         $html .= '<div class="section-title">Informasi DPD</div>';
         $html .= '<div class="info-row"><div class="info-label">No. DPD:</div><div class="info-value">' . $h::escape($dpd->dpd_number) . '</div></div>';
-        $html .= '<div class="info-row"><div class="info-label">Status:</div><div class="info-value">' . $h::statusBadge($dpd->status) . '</div></div>';
         $html .= '<div class="info-row"><div class="info-label">Pengaju:</div><div class="info-value">' . $h::escape($dpd->employee?->user?->name ?? '-') . '</div></div>';
         $html .= '<div class="info-row"><div class="info-label">Departemen:</div><div class="info-value">' . $h::escape($dpd->employee?->department?->name ?? '-') . '</div></div>';
         $html .= '<div class="info-row"><div class="info-label">Total Nominal:</div><div class="info-value"><strong>' . $h::formatCurrency($dpd->total_nominal) . '</strong></div></div>';
@@ -493,31 +493,52 @@ class DpdController extends Controller
             $html .= '<div class="info-row"><div class="info-label">Periode:</div><div class="info-value">' . $h::formatDate($dpd->spd->start_date) . ' s/d ' . $h::formatDate($dpd->spd->end_date) . ' (' . $tripDays . ' hari)</div></div>';
             $html .= '</div>';
 
-            $html .= '<div class="section">';
-            $html .= '<div class="section-title">Peserta Perjalanan Dinas</div>';
-            $html .= '<table><thead><tr><th>Nama</th><th>Departemen</th><th>Status</th></tr></thead><tbody>';
+            // Pemohon Utama dan Pengikut - Pisah section
+            $primary = null;
+            $followers = [];
+            
             foreach ($dpd->spd->employees as $se) {
-                $html .= '<tr>';
-                $html .= '<td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
-                $html .= '<td>' . $h::escape($se->employee?->department?->name ?? '-') . '</td>';
-                $html .= '<td>' . ($se->is_primary ? '<strong>Pemohon Utama</strong>' : 'Peserta') . '</td>';
-                $html .= '</tr>';
+                if ($se->is_primary) {
+                    $primary = $se;
+                } else {
+                    $followers[] = $se;
+                }
             }
-            $html .= '</tbody></table>';
-            $html .= '</div>';
+
+            if ($primary) {
+                $html .= '<div class="section">';
+                $html .= '<div class="section-title">Pemohon Utama</div>';
+                $html .= '<div class="info-row"><div class="info-label">Nama:</div><div class="info-value">' . $h::escape($primary->employee?->user?->name ?? $primary->employee?->name ?? '-') . '</div></div>';
+                $html .= '<div class="info-row"><div class="info-label">Departemen:</div><div class="info-value">' . $h::escape($primary->employee?->department?->name ?? '-') . '</div></div>';
+                $html .= '</div>';
+            }
+
+            if (!empty($followers)) {
+                $html .= '<div class="section">';
+                $html .= '<div class="section-title">Pengikut Perjalanan Dinas</div>';
+                $html .= '<table><thead><tr><th>Nama</th><th>Departemen</th></tr></thead><tbody>';
+                foreach ($followers as $se) {
+                    $html .= '<tr>';
+                    $html .= '<td>' . $h::escape($se->employee?->user?->name ?? $se->employee?->name ?? '-') . '</td>';
+                    $html .= '<td>' . $h::escape($se->employee?->department?->name ?? '-') . '</td>';
+                    $html .= '</tr>';
+                }
+                $html .= '</tbody></table>';
+                $html .= '</div>';
+            }
         }
 
         $html .= '<div class="section">';
         $html .= '<div class="section-title">Laporan Kegiatan</div>';
         if ($dpd->reports && count($dpd->reports) > 0) {
             foreach ($dpd->reports as $idx => $r) {
-                $html .= '<div style="margin-bottom:15px; padding:10px; background:#f9fafb; border-left:3px solid #10b981; border-radius:4px;">';
+                $html .= '<div style="margin-bottom:10px; padding:8px; background:#f9fafb; border-left:3px solid #10b981; border-radius:4px;">';
                 $html .= '<div class="info-row"><div class="info-label">Laporan #' . ($idx + 1) . ':</div><div class="info-value"><strong>' . $h::escape($r->title) . '</strong></div></div>';
                 if ($r->description) {
                     $html .= '<div class="info-row"><div class="info-label">Deskripsi:</div><div class="info-value">' . nl2br($h::escape($r->description)) . '</div></div>';
                 }
-                if ($r->attachment_path) {
-                    $html .= '<div class="info-row"><div class="info-label">File Lampiran:</div><div class="info-value">' . $h::escape(basename($r->attachment_path)) . '</div></div>';
+                if ($r->attachments) {
+                    $html .= '<div class="info-row"><div class="info-label">File Lampiran:</div><div class="info-value">' . count($r->attachments) . ' file</div></div>';
                 }
                 $html .= '</div>';
             }
@@ -554,45 +575,14 @@ class DpdController extends Controller
         }
         $html .= '</div>';
 
-        if (!empty($dpd->approvalChains)) {
-            $html .= '<div class="section">';
-            $html .= '<div class="section-title">Riwayat Persetujuan</div>';
-            $html .= '<table>';
-            $html .= '<thead><tr><th>Level</th><th>Nama Approver</th><th>Role</th><th>Status</th><th>Tanggal</th><th>Catatan</th></tr></thead>';
-            $html .= '<tbody>';
-            
-            $approvers = [];
-            foreach ($dpd->approvalChains as $chain) {
-                $approverName = $chain->approver ? ($chain->approver->user ? $chain->approver->user->name : $chain->approver->name) : '-';
-                $approverRole = $chain->approver?->role?->name ?? '-';
-                $rejectLog = $chain->logs ? $chain->logs->firstWhere('action', 'rejected') : null;
-                $approveLog = $chain->logs ? $chain->logs->firstWhere('action', 'approved') : null;
-                $log = $rejectLog ?? $approveLog;
-                
-                $html .= '<tr>';
-                $html .= '<td>Level ' . $chain->level_order . '</td>';
-                $html .= '<td>' . $h::escape($approverName) . '</td>';
-                $html .= '<td>' . $h::escape($approverRole) . '</td>';
-                $html .= '<td>' . $h::statusBadge($chain->status) . '</td>';
-                $html .= '<td>' . ($log ? $h::formatDate($log->created_at) : '-') . '</td>';
-                $html .= '<td>' . ($rejectLog ? $h::escape($rejectLog->rejection_reason) : '-') . '</td>';
-                $html .= '</tr>';
-                
-                if ($chain->status === 'approved') {
-                    $approvers[] = [
-                        'name' => $approverName,
-                        'role' => $approverRole,
-                    ];
-                }
-            }
-            $html .= '</tbody></table>';
-            $html .= '</div>';
-            
-            $requesterName = $dpd->employee?->user?->name ?? 'Pemohon';
-            $requesterRole = $dpd->employee?->role?->name ?? 'Karyawan';
-            
-            $html .= $h::signatureBoxes($approvers, $requesterName, $requesterRole);
-        }
+        // Riwayat persetujuan dihapus
+        // Signature dengan logika kondisional berdasarkan level
+        $requesterName = $dpd->employee?->user?->name ?? $dpd->employee?->name ?? 'Pemohon';
+        $requesterDept = $dpd->employee?->department?->name ?? 'Departemen';
+        $requesterRoleName = $dpd->employee?->role?->name ?? 'user';
+        $requesterDeptId = $dpd->employee?->department_id ?? 0;
+        
+        $html .= $h::signatureBoxesSpd($requesterName, $requesterDept, $requesterRoleName, $requesterDeptId);
 
         $html .= $h::footer();
         $html .= '</body></html>';
