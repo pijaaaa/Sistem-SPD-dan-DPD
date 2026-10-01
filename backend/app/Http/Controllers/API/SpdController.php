@@ -82,7 +82,7 @@ class SpdController extends Controller
                 'end_date' => $validated['end_date'],
                 'status' => 'pending',
                 'is_cross_department' => $isCrossDepartment,
-                'main_department_id' => $employee->department_id ?? $validated['main_department_id'],
+                'main_department_id' => $employee->department_id ?? $validated['main_department_id'] ?? null,
             ]);
 
             foreach ($validated['employees'] as $empData) {

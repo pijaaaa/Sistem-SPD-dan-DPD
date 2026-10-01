@@ -5,6 +5,7 @@ import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
 import { Settings as SettingsIcon, Clock, DollarSign, History, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import { PageLoader } from '../components/common/Loading';
+import { formatCurrency } from '../utils/currency';
 
 const SETTING_META = {
   dpd_submission_deadline_days: {
@@ -26,9 +27,6 @@ const SETTING_META = {
     color: 'blue',
   },
 };
-
-const formatIDR = (n) =>
-  new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0);
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -188,7 +186,7 @@ export default function Settings() {
                 <div className="mt-3 pt-3 border-t border-gray-300">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Nilai Saat Ini</p>
                   <p className={`text-lg font-bold ${colors.text}`}>
-                    {key === 'max_nominal_per_day' ? formatIDR(form[key]) : `${form[key]} hari`}
+                    {key === 'max_nominal_per_day' ? formatCurrency(form[key]) : `${form[key]} hari`}
                   </p>
                 </div>
               </div>
@@ -237,10 +235,10 @@ export default function Settings() {
                       {log.key === 'dpd_submission_deadline_days' ? 'Batas Waktu Pengajuan DPD' : 'Maks Nominal per Hari'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {log.key === 'max_nominal_per_day' ? formatIDR(log.old_value) : `${log.old_value} hari`}
+                      {log.key === 'max_nominal_per_day' ? formatCurrency(log.old_value) : `${log.old_value} hari`}
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-emerald-700">
-                      {log.key === 'max_nominal_per_day' ? formatIDR(log.new_value) : `${log.new_value} hari`}
+                      {log.key === 'max_nominal_per_day' ? formatCurrency(log.new_value) : `${log.new_value} hari`}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{log.changed_by_name}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{new Date(log.changed_at).toLocaleString('id-ID')}</td>

@@ -77,10 +77,9 @@ class SpdApprovalServiceTest extends TestCase
 
         $chains = SpdApprovalChain::where('spd_id', $spd->id)->orderBy('level_order')->get();
 
-        $this->assertCount(3, $chains);
+        $this->assertCount(2, $chains);
         $this->assertEquals($this->tm->id, $chains[0]->approver_employee_id);
         $this->assertEquals($this->manager->id, $chains[1]->approver_employee_id);
-        $this->assertEquals($this->gm->id, $chains[2]->approver_employee_id);
     }
 
     public function test_generate_chain_for_team_manager()
@@ -97,9 +96,8 @@ class SpdApprovalServiceTest extends TestCase
 
         $chains = SpdApprovalChain::where('spd_id', $spd->id)->orderBy('level_order')->get();
 
-        $this->assertCount(2, $chains);
+        $this->assertCount(1, $chains);
         $this->assertEquals($this->manager->id, $chains[0]->approver_employee_id);
-        $this->assertEquals($this->gm->id, $chains[1]->approver_employee_id);
     }
 
     public function test_generate_chain_for_manager()

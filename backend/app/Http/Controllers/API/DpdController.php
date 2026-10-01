@@ -331,8 +331,8 @@ class DpdController extends Controller
             }
         }
 
-        if ($dpd->status !== 'rejected') {
-            return response()->json(['message' => 'Hanya DPD yang ditolak (rejected) yang bisa direvisi.'], 403);
+        if ($dpd->status !== 'revisi') {
+            return response()->json(['message' => 'Hanya DPD yang ditolak (revisi) yang bisa direvisi.'], 403);
         }
 
         DB::transaction(function () use ($dpd) {
@@ -349,7 +349,7 @@ class DpdController extends Controller
             $dpd->update(['status' => 'draft']);
         });
 
-        return response()->json(['message' => 'DPD berhasil di-reset ke draft untuk revisi.']);
+        return response()->json(['message' => 'DPD berhasil dikembalikan ke draft untuk revisi.']);
     }
 
     public function destroy(Request $request, Dpd $dpd)

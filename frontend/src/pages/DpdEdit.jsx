@@ -7,6 +7,7 @@ import { FormField } from '../components/common/FormField';
 import { FilePreviewModal } from '../components/common/FilePreviewModal';
 import { useToast } from '../components/common/Toast';
 import { FileText, ReceiptText, ArrowLeft } from 'lucide-react';
+import { parseCurrencyInput, formatCurrencyInput, formatCurrency } from '../utils/currency';
 
 export default function DpdEdit() {
   const { id } = useParams();
@@ -351,7 +352,7 @@ export default function DpdEdit() {
                 />
                 <FormField label="Deskripsi" value={e.description} onChange={(ev) => updateExpense(i, 'description', ev.target.value)} placeholder="Deskripsi item nota..." required />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField label="Nominal (Rp)" type="number" step="1000" min="0" value={e.amount} onChange={(ev) => updateExpense(i, 'amount', ev.target.value)} placeholder="0" required />
+                   <FormField label="Nominal (Rp)" type="text" value={formatCurrencyInput(e.amount)} onChange={(ev) => updateExpense(i, 'amount', parseCurrencyInput(ev.target.value))} placeholder="0" required />
                   <FormField label="Tanggal" type="date" value={e.expense_date} onChange={(ev) => updateExpense(i, 'expense_date', ev.target.value)} required />
                 </div>
                 <div>
@@ -397,7 +398,7 @@ export default function DpdEdit() {
           <div className="flex justify-between items-center">
             <span className="text-lg font-semibold text-gray-700">Total Nominal</span>
             <span className="text-2xl font-bold text-emerald-700">
-              {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalNominal)}
+              {formatCurrency(totalNominal)}
             </span>
           </div>
         </div>

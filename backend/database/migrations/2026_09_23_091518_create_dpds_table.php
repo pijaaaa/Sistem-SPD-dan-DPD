@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->date('submission_date');
             $table->decimal('total_nominal', 15, 2)->default(0);
-            $table->enum('status', ['draft', 'submitted', 'approved', 'rejected', 'cancelled'])->default('draft');
+            $table->enum('status', ['draft', 'submitted', 'approved', 'revisi', 'rejected', 'cancelled'])->default('draft');
             $table->date('spm_date')->nullable();
             $table->timestamps();
         });

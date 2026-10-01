@@ -197,6 +197,12 @@ class PdfHelper
             text-decoration: line-through;
         }
         
+        .status-revisi {
+            background: #fffbeb;
+            border-color: #f59e0b;
+            color: #92400e;
+        }
+        
         .status-draft {
             border-color: #6b7280;
             color: #4b5563;
@@ -347,6 +353,7 @@ class PdfHelper
             'pending' => 'Menunggu',
             'approved' => 'Disetujui',
             'rejected' => 'Ditolak',
+            'revisi' => 'Revisi',
             'draft' => 'Draft',
             'submitted' => 'Diajukan',
         ];
@@ -358,7 +365,7 @@ class PdfHelper
 
     public static function watermark(string $status): string
     {
-        if (in_array($status, ['draft', 'rejected'])) {
+        if (in_array($status, ['draft', 'rejected', 'revisi'])) {
             return '<div class="watermark">' . strtoupper($status) . '</div>';
         }
         return '';

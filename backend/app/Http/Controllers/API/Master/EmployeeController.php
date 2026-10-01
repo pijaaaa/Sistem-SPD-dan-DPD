@@ -34,6 +34,7 @@ class EmployeeController extends Controller
                 'role_id' => $data['role_id'],
                 'department_id' => $data['department_id'],
                 'nip' => $data['nip'],
+                'no_pekerja' => $data['no_pekerja'] ?? null,
                 'name' => $data['name'],
                 'position' => $data['position'] ?? null,
             ]);
@@ -56,6 +57,7 @@ class EmployeeController extends Controller
                 'role_id' => $data['role_id'],
                 'department_id' => $data['department_id'],
                 'nip' => $data['nip'],
+                'no_pekerja' => $data['no_pekerja'] ?? $employee->no_pekerja,
                 'name' => $data['name'],
                 'position' => $data['position'] ?? null,
             ]);

@@ -25,8 +25,8 @@ class DelegationController extends Controller
 
         $delegations = Delegation::with(['delegator.user', 'delegate.user'])
             ->where('is_active', true)
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->get();
 
         return response()->json($delegations);

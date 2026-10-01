@@ -5,7 +5,7 @@ import api from '../services/api';
 import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, FileText, Calendar, Users, Check, ArrowLeft } from 'lucide-react';
+import { MapPin, FileText, Calendar, Users, Check, ArrowLeft, Search } from 'lucide-react';
 
 export default function SpdCreate() {
   const queryClient = useQueryClient();
@@ -28,6 +28,7 @@ export default function SpdCreate() {
   const [endDate, setEndDate] = useState('');
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const createMutation = useMutation({
     mutationFn: async (payload) => (await api.post('/api/spd', payload)).data,
@@ -80,13 +81,14 @@ export default function SpdCreate() {
     }));
 
     const loggedInEmp = allEmployees.find(emp => emp.id === myEmployeeId);
-    const mainDeptId = loggedInEmp?.department?.id || '';
+    const mainDeptId = loggedInEmp?.department?.id || null;
 
     createMutation.mutate({
       destination,
       purpose,
       start_date: startDate,
       end_date: endDate,
+      main_department_id: mainDeptId,
       employees: empData,
     });
   };
@@ -210,6 +212,24 @@ export default function SpdCreate() {
                 <Check className="w-4 h-4 inline mr-1" />
                 {user?.name} - {user?.employee?.role?.name}
               </p>
+              {user?.employee?.employee_number && (
+                <p className="text-sm text-blue-600 mt-1">
+                  No. Pekerja: <span className="font-medium">{user?.employee?.employee_number}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="mb-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cari karyawan..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                />
+              </div>
             </div>
 
             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -220,36 +240,48 @@ export default function SpdCreate() {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
                         <input type="checkbox" className="rounded" disabled />
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">No. Pekerja</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Nama Karyawan</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Role</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Posisi</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Departemen</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {allEmployees.map(emp => {
+                    {(allEmployees.filter(emp => {
+                      const searchFields = [emp.user?.name, emp.name, emp.position, emp.nip, emp.employee_number, emp.role?.name, emp.department?.name, emp.department?.code]
+                        .filter(Boolean)
+                        .map(f => String(f).toLowerCase());
+                      return searchFields.some(f => f.includes(searchTerm));
+                    })).map(emp => {
                       const isSelf = emp.id === myEmployeeId;
                       const isSelected = selectedEmployees.includes(emp.id);
-                      return (
-                        <tr 
-                          key={emp.id} 
-                          className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-emerald-50/50' : ''}`}
-                        >
+                      const isOnTrip = emp.is_on_trip;
+                        return (
+                         <tr
+                           key={emp.id}
+                           className={`transition-colors ${isOnTrip ? 'bg-gray-50/50' : (isSelected ? 'bg-emerald-50/50 hover:bg-gray-50' : 'hover:bg-gray-50')}`}
+                         >
                           <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleEmployee(emp.id)}
-                              disabled={isSelf}
-                              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                          </td>
+                             {isOnTrip ? (
+                               <span className="text-gray-400">—</span>
+                             ) : (
+                               <input
+                                 type="checkbox"
+                                 checked={isSelected}
+                                 onChange={() => toggleEmployee(emp.id)}
+                                 disabled={isSelf}
+                                 className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                               />
+                             )}
+                           </td>
+                          <td className="px-4 py-3 text-gray-600">{emp.employee_number || '-'}</td>
                           <td className="px-4 py-3">
-                            <span className={`font-medium ${isSelf ? 'text-emerald-700' : 'text-gray-900'}`}>
-                              {emp.user?.name || emp.name}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">{emp.role?.name}</td>
+                             <span className={`font-medium ${isSelf ? 'text-emerald-700' : 'text-gray-900'}`}>
+                               {emp.user?.name || emp.name}
+                             </span>
+                           </td>
+                          <td className="px-4 py-3 text-gray-600">{emp.position || '-'}</td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-medium">
                               {emp.department?.code}
@@ -262,6 +294,12 @@ export default function SpdCreate() {
                                 Utama
                               </span>
                             )}
+                              {isOnTrip && !isSelf && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs font-semibold">
+                                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                  On Duty
+                                </span>
+                              )}
                           </td>
                         </tr>
                       );

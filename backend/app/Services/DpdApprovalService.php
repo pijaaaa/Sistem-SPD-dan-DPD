@@ -2,11 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Delegation;
 use App\Models\Dpd;
 use App\Models\DpdApprovalChain;
 use App\Models\Employee;
-use App\Models\Delegation;
-use App\Services\AppSettingService;
 use App\Traits\ApprovalChainGenerator;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +28,7 @@ class DpdApprovalService
 
         if (empty($approvers)) {
             $dpd->update(['status' => 'submitted']);
+
             return;
         }
 
@@ -54,8 +54,8 @@ class DpdApprovalService
 
         $delegation = Delegation::where('delegator_id', $originalApprover->id)
             ->where('is_active', true)
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->with('delegate')
             ->first();
 
@@ -65,25 +65,25 @@ class DpdApprovalService
     public function approve(DpdApprovalChain $chain, Employee $actor): void
     {
         DB::transaction(function () use ($chain, $actor) {
-        $this->approveSingleChain($chain, $actor);
+            $this->approveSingleChain($chain, $actor);
 
-        $nextChains = DpdApprovalChain::where('dpd_id', $chain->dpd_id)
-            ->where('status', 'pending')
-            ->where('level_order', '>', $chain->level_order)
-            ->orderBy('level_order', 'asc')
-            ->get();
+            $nextChains = DpdApprovalChain::where('dpd_id', $chain->dpd_id)
+                ->where('status', 'pending')
+                ->where('level_order', '>', $chain->level_order)
+                ->orderBy('level_order', 'asc')
+                ->get();
 
-        foreach ($nextChains as $nextChain) {
-            $originalApprover = $nextChain->approver;
-            $actualApprover = $this->resolveActualApprover($originalApprover);
-            if ($actualApprover->id === $actor->id || $originalApprover->id === $actor->id) {
-                $this->approveSingleChain($nextChain, $actor);
-            } else {
-                break;
+            foreach ($nextChains as $nextChain) {
+                $originalApprover = $nextChain->approver;
+                $actualApprover = $this->resolveActualApprover($originalApprover);
+                if ($actualApprover->id === $actor->id || $originalApprover->id === $actor->id) {
+                    $this->approveSingleChain($nextChain, $actor);
+                } else {
+                    break;
+                }
             }
-        }
 
-        $this->checkDpdStatus($chain->dpd);
+            $this->checkDpdStatus($chain->dpd);
         });
     }
 
@@ -93,7 +93,7 @@ class DpdApprovalService
         $actualApprover = $this->resolveActualApprover($originalApprover);
 
         if ($actualApprover->id !== $actor->id && $originalApprover->id !== $actor->id) {
-            throw new \Exception("Unauthorized approver");
+            throw new \Exception('Unauthorized approver');
         }
 
         $chain->update(['status' => 'approved']);
@@ -115,7 +115,7 @@ class DpdApprovalService
             $actualApprover = $this->resolveActualApprover($originalApprover);
 
             if ($actualApprover->id !== $actor->id) {
-                throw new \Exception("Unauthorized approver");
+                throw new \Exception('Unauthorized approver');
             }
 
             $chain->update(['status' => 'rejected']);
@@ -134,7 +134,7 @@ class DpdApprovalService
                 ->where('status', 'pending')
                 ->update(['status' => 'cancelled']);
 
-            $chain->dpd->update(['status' => 'rejected']);
+            $chain->dpd->update(['status' => 'revisi']);
         });
     }
 
@@ -150,8 +150,8 @@ class DpdApprovalService
         $pending = $chains->where('status', 'pending')->count() > 0;
 
         if ($rejected) {
-            $dpd->update(['status' => 'rejected']);
-        } elseif (!$pending) {
+            $dpd->update(['status' => 'revisi']);
+        } elseif (! $pending) {
             $dpd->update(['status' => 'approved']);
         }
     }
@@ -162,23 +162,36 @@ class DpdApprovalService
 
         $activeDelegators = Delegation::where('delegate_id', $employee->id)
             ->where('is_active', true)
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->pluck('delegator_id');
 
-        $approvals = DpdApprovalChain::with(['dpd.spd', 'dpd.employee.user', 'dpd.reports', 'dpd.expenses.category', 'approver.user', 'approver.role'])
+        $isDelegator = Delegation::where('delegator_id', $employee->id)
+            ->where('is_active', true)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->exists();
+
+        $query = DpdApprovalChain::with(['dpd.spd', 'dpd.employee.user', 'dpd.reports', 'dpd.expenses.category', 'approver.user', 'approver.role'])
             ->where('status', 'pending')
             ->where(function ($q) use ($employee, $activeDelegators) {
                 $q->where('approver_employee_id', $employee->id)
-                  ->orWhereIn('approver_employee_id', $activeDelegators);
-            })
-            ->whereNotExists(function ($subQ) {
+                    ->orWhereIn('approver_employee_id', $activeDelegators);
+            });
+
+        // Delegator: skip whereNotExists filter so all pending chains are visible
+        // (delegator's approval is optional, delegate handles it)
+        if (! $isDelegator) {
+            $query->whereNotExists(function ($subQ) {
                 $subQ->selectRaw(1)
                     ->from('dpd_approval_chains as dac2')
                     ->whereColumn('dac2.dpd_id', 'dpd_approval_chains.dpd_id')
                     ->whereColumn('dac2.level_order', '<', 'dpd_approval_chains.level_order')
                     ->where('dac2.status', '!=', 'approved');
-            })
+            });
+        }
+
+        $approvals = $query->orderByDesc('dpd_id')
             ->orderBy('level_order')
             ->get();
 
@@ -204,7 +217,7 @@ class DpdApprovalService
             $averageNominal = $dpd->total_nominal / $tripDays;
             if ($averageNominal > $maxNominalPerDay) {
                 $warnings[] = sprintf(
-                    "Rata-rata nominal per hari: Rp%s (maksimal per hari: Rp%s)",
+                    'Rata-rata nominal per hari: Rp%s (maksimal per hari: Rp%s)',
                     number_format($averageNominal, 0),
                     number_format($maxNominalPerDay, 0)
                 );
@@ -218,6 +231,7 @@ class DpdApprovalService
     {
         $deadlineDays = $this->appSettingService->getDpdSubmissionDeadlineDays();
         $deadline = $dpd->spd->end_date->addDays($deadlineDays);
+
         return now()->lte($deadline);
     }
 
@@ -230,6 +244,7 @@ class DpdApprovalService
     protected function getChainClass($approvable): string
     {
         $class = class_basename($approvable);
+
         return "App\\Models\\{$class}ApprovalChain";
     }
 }

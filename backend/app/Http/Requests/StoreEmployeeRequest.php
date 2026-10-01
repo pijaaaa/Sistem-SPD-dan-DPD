@@ -21,6 +21,7 @@ class StoreEmployeeRequest extends FormRequest
             'role_id' => 'required|exists:roles,id',
             'department_id' => 'required|exists:departments,id',
             'nip' => 'required|string|max:50|unique:employees,nip',
+            'no_pekerja' => 'nullable|string|max:50|unique:employees,no_pekerja',
             'name' => 'required|string|max:255',
             'position' => 'nullable|string|max:255',
         ];

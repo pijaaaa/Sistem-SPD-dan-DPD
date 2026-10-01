@@ -50,11 +50,11 @@ class DashboardController extends Controller
                         'approved' => Spd::where('status', 'approved')->count(),
                         'rejected' => Spd::where('status', 'rejected')->count(),
                     ],
-                    'dpd' => [
+                     'dpd' => [
                         'total' => Dpd::count(),
                         'pending' => Dpd::whereIn('status', ['draft', 'submitted'])->count(),
                         'approved' => Dpd::where('status', 'approved')->count(),
-                        'rejected' => Dpd::where('status', 'rejected')->count(),
+                        'revisi' => Dpd::where('status', 'revisi')->count(),
                     ],
                 ],
                 'monthly_stats' => $this->getMonthlyStats(),
@@ -74,8 +74,8 @@ class DashboardController extends Controller
             $approvalStats = $this->getApprovalStats($employee);
             $delegations = Delegation::with(['delegator.user', 'delegate.user'])
                 ->where('is_active', true)
-                ->where('start_date', '<=', now())
-                ->where('end_date', '>=', now())
+                ->whereDate('start_date', '<=', now())
+                ->whereDate('end_date', '>=', now())
                 ->get();
 
             return [
@@ -129,7 +129,7 @@ class DashboardController extends Controller
                 'total' => $dpdIds->count(),
                 'pending' => Dpd::whereIn('id', $dpdIds)->whereIn('status', ['draft', 'submitted'])->count(),
                 'approved' => Dpd::whereIn('id', $dpdIds)->where('status', 'approved')->count(),
-                'rejected' => Dpd::whereIn('id', $dpdIds)->where('status', 'rejected')->count(),
+                'revisi' => Dpd::whereIn('id', $dpdIds)->where('status', 'revisi')->count(),
             ],
         ];
     }
@@ -140,8 +140,8 @@ class DashboardController extends Controller
 
         $activeDelegators = Delegation::where('delegate_id', $employee->id)
             ->where('is_active', true)
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->pluck('delegator_id');
 
         $approverIds = $activeDelegators->push($employee->id);

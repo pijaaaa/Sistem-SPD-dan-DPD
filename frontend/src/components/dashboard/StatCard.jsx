@@ -42,8 +42,9 @@ const StatGroup = ({ label, data = {} }) => {
   const counts = {
     pending: data.pending || 0,
     approved: data.approved || 0,
-    rejected: data.rejected || 0,
+    rejected: data.rejected || data.revisi || 0,
   };
+  const isRevisi = data.revisi !== undefined;
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
@@ -57,9 +58,9 @@ const StatGroup = ({ label, data = {} }) => {
           <p className="text-xs text-emerald-600 font-medium mb-1">Approved</p>
           <p className="text-lg font-bold text-emerald-700">{counts.approved}</p>
         </div>
-        <div className="text-center p-2 bg-red-50 rounded-lg border border-red-100">
-          <p className="text-xs text-red-600 font-medium mb-1">Rejected</p>
-          <p className="text-lg font-bold text-red-700">{counts.rejected}</p>
+        <div className={`text-center p-2 rounded-lg border ${isRevisi ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100'}`}>
+          <p className={`text-xs font-medium mb-1 ${isRevisi ? 'text-amber-600' : 'text-red-600'}`}>{isRevisi ? 'Revisi' : 'Rejected'}</p>
+          <p className={`text-lg font-bold ${isRevisi ? 'text-amber-700' : 'text-red-700'}`}>{counts.rejected}</p>
         </div>
       </div>
     </div>

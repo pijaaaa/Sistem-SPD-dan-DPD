@@ -24,8 +24,8 @@ class SpdNumberGeneratorService
             ->whereYear('created_at', $year)
             ->where('main_department_id', $deptId)
             ->where('spd_number', 'like', "SPD/{$deptCode}/%/{$monthRomawi}/{$year}")
-            ->orderByRaw("CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(spd_number, '/', 3), '/', -1) AS UNSIGNED) DESC")
             ->lockForUpdate()
+            ->latest('id')
             ->first();
 
         $nextNumber = $last ? (int) explode('/', $last->spd_number)[2] + 1 : 1;

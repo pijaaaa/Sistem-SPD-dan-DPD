@@ -5,6 +5,7 @@ const COLORS = {
   pending: '#f59e0b',
   approved: '#10b981',
   rejected: '#ef4444',
+  revisi: '#f59e0b',
   draft: '#6b7280',
   submitted: '#3b82f6',
 };
@@ -16,7 +17,7 @@ const StatusChart = ({ spdData, dpdData }) => {
     { name: 'SPD Rejected', value: spdData?.rejected || 0, color: COLORS.rejected },
     { name: 'DPD Pending', value: dpdData?.pending || 0, color: COLORS.submitted },
     { name: 'DPD Approved', value: dpdData?.approved || 0, color: COLORS.approved },
-    { name: 'DPD Rejected', value: dpdData?.rejected || 0, color: COLORS.rejected },
+    { name: 'DPD Revisi', value: dpdData?.revisi || dpdData?.rejected || 0, color: COLORS.revisi },
   ].filter(d => d.value > 0);
 
   if (data.length === 0) {

@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Employee;
+use App\Models\SpdEmployee;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreSpdRequest extends FormRequest
 {
@@ -38,13 +39,34 @@ class StoreSpdRequest extends FormRequest
 
             $hasPrimary = false;
             foreach ($employees as $e) {
-                if (!empty($e['is_primary'])) {
+                if (! empty($e['is_primary'])) {
                     $hasPrimary = true;
                     break;
                 }
             }
-            if (!$hasPrimary) {
+            if (! $hasPrimary) {
                 $validator->errors()->add('employees', 'Minimal harus ada satu employee sebagai pemohon utama (is_primary).');
+            }
+
+            $today = now()->toDateString();
+            $onTripEmployees = SpdEmployee::whereIn('employee_id', $employeeIds)
+                ->whereHas('spd', function ($query) use ($today) {
+                    $query->whereDate('start_date', '<=', $today)
+                        ->whereDate('end_date', '>=', $today)
+                        ->whereNotIn('status', ['rejected']);
+                })
+                ->pluck('employee_id')
+                ->toArray();
+
+            if (! empty($onTripEmployees)) {
+                $names = Employee::whereIn('id', $onTripEmployees)
+                    ->pluck('name', 'id')
+                    ->toArray();
+                $nameList = implode(', ', $names);
+                $validator->errors()->add(
+                    'employees',
+                    "Karyawan berikut sedang dalam perjalanan dinas: {$nameList}. Tidak dapat dipilih untuk SPD baru."
+                );
             }
         });
     }

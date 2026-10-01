@@ -10,6 +10,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { useToast } from '../components/common/Toast';
 import { Clock, AlertTriangle } from 'lucide-react';
 import { formatDate } from '../utils/dateFormat';
+import { formatCurrency } from '../utils/currency';
 
 export default function DpdApprovals() {
   const queryClient = useQueryClient();
@@ -43,7 +44,7 @@ export default function DpdApprovals() {
     onSuccess: () => {
       queryClient.invalidateQueries(['dpd-my-approvals']);
       handleCloseRejectModal();
-      showToast('DPD berhasil ditolak', 'success');
+      showToast('DPD dikembalikan untuk revisi', 'success');
     },
     onError: (err) => {
       const message = err.response?.data?.message || err.response?.data?.errors?.reason?.[0] || 'Gagal menolak DPD';
@@ -71,15 +72,12 @@ export default function DpdApprovals() {
     rejectMutation.mutate({ chainId: rejectChainId, reason: rejectReason });
   };
 
-  const formatIDR = (n) =>
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0);
-
   const columns = [
     { header: 'No. DPD', cell: row => <span className="font-medium text-gray-900">{row.dpd?.dpd_number}</span> },
     { header: 'SPD', cell: row => <span className="text-sm text-gray-600">{row.dpd?.spd?.spd_number}</span> },
     { header: 'Tujuan', cell: row => row.dpd?.spd?.destination },
     { header: 'Pengaju', cell: row => <span className="text-sm">{row.dpd?.employee?.user?.name}</span> },
-    { header: 'Total Nominal', cell: row => <span className="font-medium text-emerald-700">{formatIDR(row.dpd?.total_nominal)}</span> },
+    { header: 'Total Nominal', cell: row => <span className="font-medium text-emerald-700">{formatCurrency(row.dpd?.total_nominal)}</span> },
     { header: 'Level', cell: row => (
       <span className="inline-flex items-center px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium">
         Level {row.level_order}
@@ -192,7 +190,7 @@ export default function DpdApprovals() {
                 <p><span className="text-gray-600">No. SPD:</span> <span className="font-medium">{detailChain.dpd?.spd?.spd_number}</span></p>
                 <p><span className="text-gray-600">Tujuan:</span> <span className="font-medium">{detailChain.dpd?.spd?.destination}</span></p>
                 <p><span className="text-gray-600">Periode:</span> {formatDate(detailChain.dpd?.spd?.start_date)} s/d {formatDate(detailChain.dpd?.spd?.end_date)}</p>
-                <p><span className="text-gray-600">Total Nominal:</span> <span className="font-medium text-emerald-700">{formatIDR(detailChain.dpd?.total_nominal)}</span></p>
+                <p><span className="text-gray-600">Total Nominal:</span> <span className="font-medium text-emerald-700">{formatCurrency(detailChain.dpd?.total_nominal)}</span></p>
               </div>
             </div>
 
@@ -217,7 +215,7 @@ export default function DpdApprovals() {
                       <p className="font-medium">{e.category?.name || 'Kategori'}: {e.description}</p>
                       <p className="text-gray-500 text-xs mt-1">{e.expense_date}</p>
                     </div>
-                    <span className="font-semibold text-emerald-700">{formatIDR(e.amount)}</span>
+                    <span className="font-semibold text-emerald-700">{formatCurrency(e.amount)}</span>
                   </div>
                 ))}
               </div>

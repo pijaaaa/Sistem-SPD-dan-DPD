@@ -65,12 +65,12 @@ Dokumen ini menjelaskan cara kerja sistem **SPD & DPD** dari sudut pandang pengg
 - Approver melihat detail laporan & rincian nota.
 - Jika total nominal per hari melebihi batas yang ditetapkan GM, muncul **peringatan** (tapi tidak menghalangi approve).
 - **Approve** atau **Reject** dengan alasan.
-- Jika DPD di-reject, tidak bisa direvisi — buat DPD baru.
+   - Jika DPD di-reject, status otomatis berubah menjadi **revisi** dan DPD dapat di-revision (klik tombol **Revisi** di halaman detail). Buat baru tidak perlu — revisi otomatis kembali ke draft.
 
 ### 7. Riwayat & Status
 
 - Status SPD: `pending` → `approved` / `rejected`
-- Status DPD: `draft` → `approved` / `rejected`
+- Status DPD: `draft` → `submitted` → `approved` / `revisi` (bisa direvisi kembali)
 - Pemohon melihat riwayat di menu **SPD & DPD Saya** atau Dashboard.
 
 ---
@@ -79,7 +79,7 @@ Dokumen ini menjelaskan cara kerja sistem **SPD & DPD** dari sudut pandang pengg
 
 1. **1 SPD = 1 DPD** — satu perjalanan dinas hanya boleh satu deklarasi.
 2. **DPD hanya setelah SPD approved.**
-3. **Tidak ada revisi** setelah reject — buat ulang dari awal.
+3. **Revisi setelah reject** — DPD yang ditolak masuk status `revisi`; pemohon klik **Revisi** untuk kembali ke draft dan mengajukan ulang.
 4. **Delegasi** berlaku untuk approval SPD maupun DPD.
 5. **GM diatur**: batas waktu pengajuan DPD & maksimal nominal per hari (menu Pengaturan).
 

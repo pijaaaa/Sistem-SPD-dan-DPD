@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Delegation;
+use App\Models\Employee;
 use App\Models\Spd;
 use App\Models\SpdApprovalChain;
 use App\Models\SpdEmployee;
-use App\Models\Employee;
-use App\Models\Delegation;
 use App\Traits\ApprovalChainGenerator;
 use Illuminate\Support\Facades\DB;
 
@@ -21,16 +21,17 @@ class SpdApprovalService
         $needsApproval = false;
         foreach ($spd->employees as $se) {
             $roleName = $se->employee->role->name;
-            if (!in_array($roleName, ['general_manager', 'super_admin'])) {
+            if (! in_array($roleName, ['general_manager', 'super_admin'])) {
                 $needsApproval = true;
             } else {
                 $se->update(['status' => 'approved']);
             }
         }
 
-        if (!$needsApproval) {
+        if (! $needsApproval) {
             $spd->update(['status' => 'approved']);
             SpdEmployee::where('spd_id', $spd->id)->update(['status' => 'approved']);
+
             return;
         }
 
@@ -70,8 +71,8 @@ class SpdApprovalService
 
         $delegation = Delegation::where('delegator_id', $originalApprover->id)
             ->where('is_active', true)
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->with('delegate')
             ->first();
 
@@ -81,26 +82,26 @@ class SpdApprovalService
     public function approve(SpdApprovalChain $chain, Employee $actor): void
     {
         DB::transaction(function () use ($chain, $actor) {
-        $this->approveSingleChain($chain, $actor);
+            $this->approveSingleChain($chain, $actor);
 
-        $nextChains = SpdApprovalChain::where('spd_id', $chain->spd_id)
-            ->where('spd_employee_id', $chain->spd_employee_id)
-            ->where('status', 'pending')
-            ->where('level_order', '>', $chain->level_order)
-            ->orderBy('level_order', 'asc')
-            ->get();
+            $nextChains = SpdApprovalChain::where('spd_id', $chain->spd_id)
+                ->where('spd_employee_id', $chain->spd_employee_id)
+                ->where('status', 'pending')
+                ->where('level_order', '>', $chain->level_order)
+                ->orderBy('level_order', 'asc')
+                ->get();
 
-        foreach ($nextChains as $nextChain) {
-            $originalApprover = $nextChain->approver;
-            $actualApprover = $this->resolveActualApprover($originalApprover);
-            if ($actualApprover->id === $actor->id || $originalApprover->id === $actor->id) {
-                $this->approveSingleChain($nextChain, $actor);
-            } else {
-                break;
+            foreach ($nextChains as $nextChain) {
+                $originalApprover = $nextChain->approver;
+                $actualApprover = $this->resolveActualApprover($originalApprover);
+                if ($actualApprover->id === $actor->id || $originalApprover->id === $actor->id) {
+                    $this->approveSingleChain($nextChain, $actor);
+                } else {
+                    break;
+                }
             }
-        }
 
-        $this->checkSpdStatus($chain->spd);
+            $this->checkSpdStatus($chain->spd);
         });
     }
 
@@ -110,7 +111,7 @@ class SpdApprovalService
         $actualApprover = $this->resolveActualApprover($originalApprover);
 
         if ($actualApprover->id !== $actor->id && $originalApprover->id !== $actor->id) {
-            throw new \Exception("Unauthorized approver");
+            throw new \Exception('Unauthorized approver');
         }
 
         $chain->update(['status' => 'approved']);
@@ -132,7 +133,7 @@ class SpdApprovalService
             $actualApprover = $this->resolveActualApprover($originalApprover);
 
             if ($actualApprover->id !== $actor->id) {
-                throw new \Exception("Unauthorized approver");
+                throw new \Exception('Unauthorized approver');
             }
 
             $chain->update(['status' => 'rejected']);
@@ -174,6 +175,7 @@ class SpdApprovalService
                 if ($se->status !== 'approved') {
                     $se->update(['status' => 'approved']);
                 }
+
                 continue;
             }
 
@@ -199,7 +201,7 @@ class SpdApprovalService
             }
         }
 
-        if (!$allApproved) {
+        if (! $allApproved) {
             $hasRejected = $spd->employees()
                 ->where('status', 'rejected')
                 ->exists();
@@ -209,6 +211,7 @@ class SpdApprovalService
             } elseif ($spd->status === 'draft') {
                 $spd->update(['status' => 'pending']);
             }
+
             return;
         }
 
@@ -222,24 +225,37 @@ class SpdApprovalService
 
         $activeDelegators = Delegation::where('delegate_id', $employee->id)
             ->where('is_active', true)
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->pluck('delegator_id');
 
-        $approvals = SpdApprovalChain::with(['spd.employees.employee', 'spdEmployee.employee', 'approver'])
+        $isDelegator = Delegation::where('delegator_id', $employee->id)
+            ->where('is_active', true)
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->exists();
+
+        $query = SpdApprovalChain::with(['spd.employees.employee', 'spdEmployee.employee', 'approver'])
             ->where('status', 'pending')
             ->where(function ($q) use ($employee, $activeDelegators) {
                 $q->where('approver_employee_id', $employee->id)
-                  ->orWhereIn('approver_employee_id', $activeDelegators);
-            })
-            ->whereNotExists(function ($subQ) {
+                    ->orWhereIn('approver_employee_id', $activeDelegators);
+            });
+
+        // Delegator: skip whereNotExists filter so all pending chains are visible
+        // (delegator's approval is optional, delegate handles it)
+        if (! $isDelegator) {
+            $query->whereNotExists(function ($subQ) {
                 $subQ->selectRaw(1)
                     ->from('spd_approval_chains as sac2')
                     ->whereColumn('sac2.spd_id', 'spd_approval_chains.spd_id')
                     ->whereColumn('sac2.spd_employee_id', 'spd_approval_chains.spd_employee_id')
                     ->whereColumn('sac2.level_order', '<', 'spd_approval_chains.level_order')
                     ->where('sac2.status', '!=', 'approved');
-            })
+            });
+        }
+
+        $approvals = $query->orderByDesc('spd_id')
             ->orderBy('level_order')
             ->get();
 

@@ -11,9 +11,8 @@ import { PageLoader } from '../components/common/Loading';
 import { useToast } from '../components/common/Toast';
 import { FileText, ReceiptText, MapPin, Clock, ArrowLeft, AlertCircle, Download } from 'lucide-react';
 
-const formatDate = (d) => (d ? new Date(d).toLocaleDateString('id-ID') : '-');
-const formatCurrency = (v) =>
-  new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v || 0);
+import { formatDate } from '../utils/dateFormat';
+import { formatCurrency } from '../utils/currency';
 
 export default function DpdDetail() {
   const { id } = useParams();
@@ -98,6 +97,20 @@ export default function DpdDetail() {
   const isCreator = dpd.employee_id === user?.employee?.id;
   const isParticipant = isCreator || (dpd.spd?.employees || []).some(e => e.employee_id === user?.employee?.id);
 
+  const rejectionNote = React.useMemo(() => {
+    if (dpd.status !== 'revisi' || !dpd.approvalChains) return null;
+    for (const chain of dpd.approvalChains) {
+      const rejectLog = chain.logs?.find((log) => log.action === 'rejected');
+      if (rejectLog?.rejection_reason) {
+        return {
+          reason: rejectLog.rejection_reason,
+          approver: chain.approver?.user?.name || chain.approver?.name || '-',
+        };
+      }
+    }
+    return null;
+  }, [dpd]);
+
   const handleOpenSubmit = async () => {
     try {
       await validateMutation.mutateAsync();
@@ -146,7 +159,7 @@ export default function DpdDetail() {
               PDF
             </Button>
           )}
-          {dpd.status === 'rejected' && isCreator && (
+          {dpd.status === 'revisi' && isCreator && (
             <Button variant="secondary" size="sm" onClick={() => reviseMutation.mutate()} isLoading={reviseMutation.isPending}>
               Revisi
             </Button>
@@ -194,6 +207,17 @@ export default function DpdDetail() {
               <p className="text-xs text-gray-500 uppercase tracking-wider">Pengaju</p>
               <p className="font-medium text-gray-900">{dpd.employee?.user?.name || '-'}</p>
             </div>
+            {rejectionNote && (
+              <div className="md:col-span-2 space-y-1">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Catatan Revisi (Alasan Penolakan)</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">
+                    Ditolak oleh: <span className="font-medium text-gray-700">{rejectionNote.approver}</span>
+                  </p>
+                  <p className="text-sm text-amber-900 mt-0.5">{rejectionNote.reason}</p>
+                </div>
+              </div>
+            )}
             {dpd.spm_date && (
               <div className="space-y-1">
                 <p className="text-xs text-gray-500 uppercase tracking-wider">Tanggal SPM</p>

@@ -25,6 +25,13 @@ export const StatusBadge = ({ status }) => {
       icon: XCircle,
       label: 'Ditolak'
     },
+    revisi: {
+      bg: 'bg-amber-50',
+      text: 'text-amber-700',
+      border: 'border-amber-200',
+      icon: AlertCircle,
+      label: 'Revisi'
+    },
     draft: {
       bg: 'bg-slate-50',
       text: 'text-slate-600',

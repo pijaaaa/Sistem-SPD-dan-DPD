@@ -7,6 +7,7 @@ import { Button } from '../components/common/Button';
 import { ActionButton } from '../components/common/ActionButton';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { formatDate } from '../utils/dateFormat';
+import { formatCurrency } from '../utils/currency';
 
 const periodeCell = (r) => {
   return formatDate(r.start_date) + ' s/d ' + formatDate(r.end_date);
@@ -47,9 +48,7 @@ export default function MyRequests() {
     {
       header: 'Total',
       cell: (r) =>
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(
-          r.total_nominal || 0,
-        ),
+        formatCurrency(r.total_nominal || 0),
     },
     { header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
   ];

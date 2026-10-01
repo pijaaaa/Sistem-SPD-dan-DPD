@@ -88,6 +88,7 @@ export default function Employees() {
   };
 
   const columns = [
+    { header: 'No. Pekerjaan', accessor: 'employee_number' },
     { header: 'NIP', accessor: 'nip' },
     { header: 'Nama', accessor: 'name' },
     { header: 'Posisi', accessor: 'position' },
@@ -126,6 +127,7 @@ export default function Employees() {
         {serverError && <div className="mb-3 bg-red-50 text-red-600 p-2 rounded text-sm">{serverError}</div>}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <FormField label="NIP" {...register('nip', { required: 'Wajib' })} error={errors.nip} />
+          <FormField label="No. Pekerja" {...register('no_pekerja')} error={errors.no_pekerja} />
           <FormField label="Nama Lengkap" {...register('name', { required: 'Wajib' })} error={errors.name} />
           <FormField label="Email" type="email" {...register('email', { required: 'Wajib' })} error={errors.email} />
 
