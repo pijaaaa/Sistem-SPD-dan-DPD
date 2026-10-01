@@ -149,7 +149,7 @@ export default function Login() {
                 <label className="block text-sm font-semibold text-slate-700">
                   Kode Keamanan (Captcha)
                 </label>
-                <span className="text-[11px] text-emerald-700 font-medium">Anti Brute-Force</span>
+                {/* <span className="text-[11px] text-emerald-700 font-medium">Anti Brute-Force</span> */}
               </div>
 
               <div className="flex items-center gap-2.5 mb-2.5">

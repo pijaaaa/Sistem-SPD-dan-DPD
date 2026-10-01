@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class DpdReport extends Model
 {
-    protected $fillable = ['dpd_id', 'title', 'description', 'attachment_path'];
+    protected $fillable = ['dpd_id', 'title', 'description', 'attachments'];
+
+    protected $appends = ['attachment_urls'];
 
     protected $casts = [
-        'attachment_path' => 'string',
+        'attachments' => 'array',
     ];
 
     public function dpd()
@@ -17,11 +19,20 @@ class DpdReport extends Model
         return $this->belongsTo(Dpd::class);
     }
 
+    public function getAttachmentUrlsAttribute()
+    {
+        if ($this->attachments && is_array($this->attachments)) {
+            return array_map(function ($path) {
+                return asset('storage/' . $path);
+            }, $this->attachments);
+        }
+        return [];
+    }
+
+    // Backward compatibility
     public function getAttachmentUrlAttribute()
     {
-        if ($this->attachment_path) {
-            return asset('storage/' . $this->attachment_path);
-        }
-        return null;
+        $urls = $this->attachment_urls;
+        return !empty($urls) ? $urls[0] : null;
     }
 }

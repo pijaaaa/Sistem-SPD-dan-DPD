@@ -75,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/approval/{chain}/reject', [DpdApprovalController::class, 'reject']);
         Route::post('/{dpd}/generate-approval-chain', [DpdApprovalController::class, 'generateApprovalChain']);
         Route::post('/{dpd}/revise', [DpdController::class, 'revise']);
+        Route::get('/download-file', [DpdController::class, 'downloadFile']);
         Route::get('/{dpd}', [DpdController::class, 'show']);
         Route::get('/{dpd}/export/pdf', [DpdController::class, 'exportPdf'])->name('dpd.exportPDF');
         Route::post('/', [DpdController::class, 'store']);

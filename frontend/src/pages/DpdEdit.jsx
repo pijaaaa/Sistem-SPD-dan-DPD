@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
+import { FilePreviewModal } from '../components/common/FilePreviewModal';
 import { useToast } from '../components/common/Toast';
 import { FileText, ReceiptText, ArrowLeft } from 'lucide-react';
 
@@ -28,6 +29,7 @@ export default function DpdEdit() {
   const [expenses, setExpenses] = useState([]);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+  const [filePreview, setFilePreview] = useState({ isOpen: false, url: null, name: null });
 
   useEffect(() => {
     if (dpdData?.dpd) {
@@ -35,15 +37,31 @@ export default function DpdEdit() {
       setSubmissionDate(dpd.submission_date?.split('T')[0] || new Date().toISOString().split('T')[0]);
       
       if (dpd.reports?.length > 0) {
-        setReports(dpd.reports.map(r => ({ id: r.id, title: r.title, description: r.description || '', attachment: null, attachment_path: r.attachment_path })));
+        setReports(dpd.reports.map(r => ({ 
+          id: r.id, 
+          title: r.title, 
+          description: r.description || '', 
+          attachments: [], 
+          existing_attachments: r.attachments || [], 
+          attachment_urls: r.attachment_urls || [] 
+        })));
       } else {
-        setReports([{ title: '', description: '', attachment: null }]);
+        setReports([{ title: '', description: '', attachments: [] }]);
       }
 
       if (dpd.expenses?.length > 0) {
-        setExpenses(dpd.expenses.map(e => ({ id: e.id, category_id: e.category_id, description: e.description, amount: e.amount, expense_date: e.expense_date?.split('T')[0], attachment: null, attachment_path: e.attachment_path })));
+        setExpenses(dpd.expenses.map(e => ({ 
+          id: e.id, 
+          category_id: e.category_id, 
+          description: e.description, 
+          amount: e.amount, 
+          expense_date: e.expense_date?.split('T')[0], 
+          attachments: [], 
+          existing_attachments: e.attachments || [], 
+          attachment_urls: e.attachment_urls || [] 
+        })));
       } else {
-        setExpenses([{ category_id: '', description: '', amount: '', expense_date: new Date().toISOString().split('T')[0], attachment: null }]);
+        setExpenses([{ category_id: '', description: '', amount: '', expense_date: new Date().toISOString().split('T')[0], attachments: [] }]);
       }
     }
   }, [dpdData]);
@@ -79,12 +97,16 @@ export default function DpdEdit() {
     const formData = new FormData();
     formData.append('submission_date', submissionDate);
 
-    const validReports = reports.filter((r) => r.title || r.description || r.attachment || r.id);
+    const validReports = reports.filter((r) => r.title || r.description || (r.attachments && r.attachments.length > 0) || r.id);
     validReports.forEach((r, i) => {
       if (r.id) formData.append(`reports[${i}][id]`, r.id);
       formData.append(`reports[${i}][title]`, r.title);
       if (r.description) formData.append(`reports[${i}][description]`, r.description);
-      if (r.attachment) formData.append(`reports[${i}][attachment]`, r.attachment);
+      if (r.attachments && r.attachments.length > 0) {
+        r.attachments.forEach((file) => {
+          formData.append(`reports[${i}][attachments][]`, file);
+        });
+      }
     });
 
     const validExpenses = expenses.filter(
@@ -102,14 +124,18 @@ export default function DpdEdit() {
       formData.append(`expenses[${i}][description]`, e.description);
       formData.append(`expenses[${i}][amount]`, e.amount);
       formData.append(`expenses[${i}][expense_date]`, e.expense_date);
-      if (e.attachment) formData.append(`expenses[${i}][attachment]`, e.attachment);
+      if (e.attachments && e.attachments.length > 0) {
+        e.attachments.forEach((file) => {
+          formData.append(`expenses[${i}][attachments][]`, file);
+        });
+      }
     });
 
     updateMutation.mutate(formData);
   };
 
   const addReport = () => {
-    setReports([...reports, { title: '', description: '', attachment: null }]);
+    setReports([...reports, { title: '', description: '', attachments: [] }]);
     showToast('Laporan kegiatan ditambahkan', 'success');
   };
   const removeReport = (idx) => {
@@ -123,7 +149,7 @@ export default function DpdEdit() {
   };
 
   const addExpense = () => {
-    setExpenses([...expenses, { category_id: '', description: '', amount: '', expense_date: new Date().toISOString().split('T')[0], attachment: null }]);
+    setExpenses([...expenses, { category_id: '', description: '', amount: '', expense_date: new Date().toISOString().split('T')[0], attachments: [] }]);
     showToast('Item nota ditambahkan', 'success');
   };
   const removeExpense = (idx) => {
@@ -134,6 +160,14 @@ export default function DpdEdit() {
     const e = [...expenses];
     e[idx] = { ...e[idx], [field]: value };
     setExpenses(e);
+  };
+
+  const openFilePreview = (url, name) => {
+    setFilePreview({ isOpen: true, url, name });
+  };
+
+  const closeFilePreview = () => {
+    setFilePreview({ isOpen: false, url: null, name: null });
   };
 
   if (catsLoading || dpdLoading) return <div className="py-12 text-center">Memuat data...</div>;
@@ -245,9 +279,36 @@ export default function DpdEdit() {
                 <FormField label="Judul" value={r.title} onChange={(e) => updateReport(i, 'title', e.target.value)} placeholder="Judul laporan kegiatan..." required />
                 <FormField label="Deskripsi" as="textarea" value={r.description} onChange={(e) => updateReport(i, 'description', e.target.value)} placeholder="Deskripsi laporan..." rows={3} />
                 <div>
-                  <FormField label="File (PDF/Gambar)" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => updateReport(i, 'attachment', e.target.files[0])} />
-                  {r.attachment_path && !r.attachment && (
-                    <p className="text-sm text-gray-500 mt-1">File saat ini: <a href={r.attachment_path} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Lihat file</a> (Kosongkan jika tidak ingin mengubah file)</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">File Kegiatan Baru (PDF/Gambar) - Multiple</label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    multiple
+                    onChange={(e) => updateReport(i, 'attachments', Array.from(e.target.files))}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {r.attachments && r.attachments.length > 0 && (
+                    <p className="text-xs text-gray-600 mt-1">{r.attachments.length} file baru dipilih</p>
+                  )}
+                  {r.attachment_urls && r.attachment_urls.length > 0 && !r.attachments?.length && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 mb-2">File saat ini:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {r.attachment_urls.map((url, idx) => (
+                          <Button
+                            key={idx}
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => openFilePreview(url, `${r.title} - File ${idx + 1}`)}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            File {idx + 1}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">(Upload file baru jika ingin mengubah)</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -294,9 +355,36 @@ export default function DpdEdit() {
                   <FormField label="Tanggal" type="date" value={e.expense_date} onChange={(ev) => updateExpense(i, 'expense_date', ev.target.value)} required />
                 </div>
                 <div>
-                  <FormField label="File Nota (PDF/Gambar)" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(ev) => updateExpense(i, 'attachment', ev.target.files[0])} />
-                  {e.attachment_path && !e.attachment && (
-                    <p className="text-sm text-gray-500 mt-1">File saat ini: <a href={e.attachment_path} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Lihat file</a> (Kosongkan jika tidak ingin mengubah file)</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">File Nota Baru (PDF/Gambar) - Multiple</label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    multiple
+                    onChange={(ev) => updateExpense(i, 'attachments', Array.from(ev.target.files))}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                  />
+                  {e.attachments && e.attachments.length > 0 && (
+                    <p className="text-xs text-gray-600 mt-1">{e.attachments.length} file baru dipilih</p>
+                  )}
+                  {e.attachment_urls && e.attachment_urls.length > 0 && !e.attachments?.length && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 mb-2">File saat ini:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {e.attachment_urls.map((url, idx) => (
+                          <Button
+                            key={idx}
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => openFilePreview(url, `Nota ${categories?.find(c => c.id === e.category_id)?.name} - File ${idx + 1}`)}
+                          >
+                            <ReceiptText className="w-4 h-4 mr-2" />
+                            File {idx + 1}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">(Upload file baru jika ingin mengubah)</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -323,6 +411,14 @@ export default function DpdEdit() {
           </Button>
         </div>
       </form>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        isOpen={filePreview.isOpen}
+        onClose={closeFilePreview}
+        fileUrl={filePreview.url}
+        fileName={filePreview.name}
+      />
     </div>
   );
 }

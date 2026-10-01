@@ -69,13 +69,15 @@ class DpdController extends Controller
             'reports' => 'nullable|array',
             'reports.*.title' => 'required_with:reports|string',
             'reports.*.description' => 'nullable|string',
-            'reports.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'reports.*.attachments' => 'nullable|array',
+            'reports.*.attachments.*' => 'file|mimes:pdf,jpg,jpeg,png|max:10240',
             'expenses' => 'required|array|min:1',
             'expenses.*.category_id' => 'required|exists:dpd_expense_categories,id',
             'expenses.*.description' => 'required|string',
             'expenses.*.amount' => 'required|numeric|min:0',
             'expenses.*.expense_date' => 'required|date',
-            'expenses.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'expenses.*.attachments' => 'nullable|array',
+            'expenses.*.attachments.*' => 'file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
 
         $user = $request->user();
@@ -132,24 +134,28 @@ class DpdController extends Controller
 
             if (!empty($validated['reports'])) {
                 foreach ($validated['reports'] as $reportData) {
-                    $attachmentPath = null;
-                    if (!empty($reportData['attachment'])) {
-                        $attachmentPath = $reportData['attachment']->store('dpd_reports', 'public');
+                    $attachmentPaths = [];
+                    if (!empty($reportData['attachments'])) {
+                        foreach ($reportData['attachments'] as $file) {
+                            $attachmentPaths[] = $file->store('dpd_reports', 'public');
+                        }
                     }
 
                     $dpd->reports()->create([
                         'title' => $reportData['title'],
                         'description' => $reportData['description'] ?? null,
-                        'attachment_path' => $attachmentPath,
+                        'attachments' => $attachmentPaths,
                     ]);
                 }
             }
 
             $totalNominal = 0;
             foreach ($validated['expenses'] as $expenseData) {
-                $attachmentPath = null;
-                if (!empty($expenseData['attachment'])) {
-                    $attachmentPath = $expenseData['attachment']->store('dpd_expenses', 'public');
+                $attachmentPaths = [];
+                if (!empty($expenseData['attachments'])) {
+                    foreach ($expenseData['attachments'] as $file) {
+                        $attachmentPaths[] = $file->store('dpd_expenses', 'public');
+                    }
                 }
 
                 $dpd->expenses()->create([
@@ -157,7 +163,7 @@ class DpdController extends Controller
                     'description' => $expenseData['description'],
                     'amount' => $expenseData['amount'],
                     'expense_date' => $expenseData['expense_date'],
-                    'attachment_path' => $attachmentPath,
+                    'attachments' => $attachmentPaths,
                 ]);
 
                 $totalNominal += (float) $expenseData['amount'];
@@ -196,14 +202,16 @@ class DpdController extends Controller
             'reports.*.id' => 'nullable|exists:dpd_reports,id',
             'reports.*.title' => 'required_with:reports|string',
             'reports.*.description' => 'nullable|string',
-            'reports.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'reports.*.attachments' => 'nullable|array',
+            'reports.*.attachments.*' => 'file|mimes:pdf,jpg,jpeg,png|max:10240',
             'expenses' => 'sometimes|array|min:1',
             'expenses.*.id' => 'nullable|exists:dpd_expenses,id',
             'expenses.*.category_id' => 'required_with:expenses|exists:dpd_expense_categories,id',
             'expenses.*.description' => 'required_with:expenses|string',
             'expenses.*.amount' => 'required_with:expenses|numeric|min:0',
             'expenses.*.expense_date' => 'required_with:expenses|date',
-            'expenses.*.attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'expenses.*.attachments' => 'nullable|array',
+            'expenses.*.attachments.*' => 'file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
 
         $dpd = DB::transaction(function () use ($validated, $dpd) {
@@ -216,26 +224,39 @@ class DpdController extends Controller
                 $newIds = collect($validated['reports'])->whereNotNull('id')->pluck('id')->toArray();
                 $toDelete = array_diff($existingIds, $newIds);
 
-                DpdReport::destroy($toDelete);
+                foreach ($toDelete as $id) {
+                    $report = DpdReport::find($id);
+                    if ($report && $report->attachments) {
+                        foreach ($report->attachments as $path) {
+                            Storage::disk('public')->delete($path);
+                        }
+                    }
+                    $report?->delete();
+                }
 
                 foreach ($validated['reports'] as $reportData) {
-                    $attachmentPath = null;
-                    if (!empty($reportData['attachment'])) {
-                        $attachmentPath = $reportData['attachment']->store('dpd_reports', 'public');
+                    $attachmentPaths = [];
+                    if (!empty($reportData['attachments'])) {
+                        foreach ($reportData['attachments'] as $file) {
+                            $attachmentPaths[] = $file->store('dpd_reports', 'public');
+                        }
                     }
 
                     if (!empty($reportData['id'])) {
                         $report = DpdReport::find($reportData['id']);
+                        $existingAttachments = $report->attachments ?? [];
+                        $newAttachments = !empty($attachmentPaths) ? $attachmentPaths : $existingAttachments;
+                        
                         $report->update([
                             'title' => $reportData['title'],
                             'description' => $reportData['description'] ?? null,
-                            'attachment_path' => $attachmentPath ?? $report->attachment_path,
+                            'attachments' => $newAttachments,
                         ]);
                     } else {
                         $dpd->reports()->create([
                             'title' => $reportData['title'],
                             'description' => $reportData['description'] ?? null,
-                            'attachment_path' => $attachmentPath,
+                            'attachments' => $attachmentPaths,
                         ]);
                     }
                 }
@@ -248,27 +269,34 @@ class DpdController extends Controller
 
                 foreach ($toDelete as $id) {
                     $expense = DpdExpense::find($id);
-                    if ($expense->attachment_path) {
-                        Storage::disk('public')->delete($expense->attachment_path);
+                    if ($expense && $expense->attachments) {
+                        foreach ($expense->attachments as $path) {
+                            Storage::disk('public')->delete($path);
+                        }
                     }
-                    $expense->delete();
+                    $expense?->delete();
                 }
 
                 $totalNominal = 0;
                 foreach ($validated['expenses'] as $expenseData) {
-                    $attachmentPath = null;
-                    if (!empty($expenseData['attachment'])) {
-                        $attachmentPath = $expenseData['attachment']->store('dpd_expenses', 'public');
+                    $attachmentPaths = [];
+                    if (!empty($expenseData['attachments'])) {
+                        foreach ($expenseData['attachments'] as $file) {
+                            $attachmentPaths[] = $file->store('dpd_expenses', 'public');
+                        }
                     }
 
                     if (!empty($expenseData['id'])) {
                         $expense = DpdExpense::find($expenseData['id']);
+                        $existingAttachments = $expense->attachments ?? [];
+                        $newAttachments = !empty($attachmentPaths) ? $attachmentPaths : $existingAttachments;
+                        
                         $expense->update([
                             'category_id' => $expenseData['category_id'],
                             'description' => $expenseData['description'],
                             'amount' => $expenseData['amount'],
                             'expense_date' => $expenseData['expense_date'],
-                            'attachment_path' => $attachmentPath ?? $expense->attachment_path,
+                            'attachments' => $newAttachments,
                         ]);
                         $totalNominal += $expenseData['amount'];
                     } else {
@@ -277,7 +305,7 @@ class DpdController extends Controller
                             'description' => $expenseData['description'],
                             'amount' => $expenseData['amount'],
                             'expense_date' => $expenseData['expense_date'],
-                            'attachment_path' => $attachmentPath,
+                            'attachments' => $attachmentPaths,
                         ]);
                         $totalNominal += $expenseData['amount'];
                     }
@@ -340,14 +368,18 @@ class DpdController extends Controller
         }
 
         foreach ($dpd->reports as $report) {
-            if ($report->attachment_path) {
-                Storage::disk('public')->delete($report->attachment_path);
+            if ($report->attachments) {
+                foreach ($report->attachments as $path) {
+                    Storage::disk('public')->delete($path);
+                }
             }
         }
 
         foreach ($dpd->expenses as $expense) {
-            if ($expense->attachment_path) {
-                Storage::disk('public')->delete($expense->attachment_path);
+            if ($expense->attachments) {
+                foreach ($expense->attachments as $path) {
+                    Storage::disk('public')->delete($path);
+                }
             }
         }
 
@@ -359,6 +391,27 @@ class DpdController extends Controller
     public function categories()
     {
         return response()->json(DpdExpenseCategory::all());
+    }
+
+    public function downloadFile(Request $request)
+    {
+        $validated = $request->validate([
+            'path' => 'required|string',
+        ]);
+
+        $filePath = $validated['path'];
+        $fullPath = storage_path('app/public/' . $filePath);
+
+        if (!file_exists($fullPath)) {
+            return response()->json(['message' => 'File tidak ditemukan.'], 404);
+        }
+
+        $fileName = basename($filePath);
+        
+        return response()->download($fullPath, $fileName, [
+            'Content-Type' => mime_content_type($fullPath),
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
     }
 
     public function exportPdf(Dpd $dpd)

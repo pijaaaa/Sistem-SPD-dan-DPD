@@ -103,10 +103,29 @@ export default function Delegations() {
     });
   };
 
-  const employeeOptions = (employees || []).map(e => ({
-    value: e.id,
-    label: `${e.name} — ${e.role?.name || ''}`,
-  }));
+  const employeeOptions = (employees || [])
+    .filter(e => {
+      const roleLevel = e.role?.level;
+      return roleLevel !== undefined && roleLevel >= 2;
+    })
+    .map(e => ({
+      value: e.id,
+      label: `${e.name} — ${e.role?.name || ''}`,
+    }));
+
+  const selectedDelegatorId = watch('delegator_id');
+  const selectedDelegator = employees?.find(e => String(e.id) === String(selectedDelegatorId));
+  
+  // Filter delegate options: hanya tampilkan role level >= 2 (team_manager ke atas)
+  const delegateOptions = (employees || [])
+    .filter(e => {
+      const roleLevel = e.role?.level;
+      return roleLevel !== undefined && roleLevel >= 2;
+    })
+    .map(e => ({
+      value: e.id,
+      label: `${e.name} — ${e.role?.name || ''}`,
+    }));
 
   const displayData = showActiveOnly
     ? (delegations || []).filter(d => d.is_active)
@@ -202,13 +221,19 @@ export default function Delegations() {
             {...register('delegator_id', { required: 'Delegator wajib dipilih' })}
             error={errors.delegator_id}
           />
+          <p className="text-xs text-gray-500 -mt-2 mb-3">
+            Hanya Team Manager atau role lebih tinggi yang dapat mendelegasikan wewenang.
+          </p>
           <FormField
             as="select"
             label="Delegate (Penerima delegasi)"
-            options={[{ value: '', label: '-- Pilih delegate --' }, ...employeeOptions]}
+            options={[{ value: '', label: '-- Pilih delegate --' }, ...delegateOptions]}
             {...register('delegate_id', { required: 'Delegate wajib dipilih' })}
             error={errors.delegate_id}
           />
+          <p className="text-xs text-gray-500 -mt-2 mb-3">
+            Hanya Team Manager, Manager, atau role lebih tinggi yang dapat menjadi delegate.
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <FormField
               label="Tanggal Mulai"

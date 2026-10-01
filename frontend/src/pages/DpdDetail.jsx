@@ -6,6 +6,7 @@ import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { Modal } from '../components/common/Modal';
+import { FilePreviewModal } from '../components/common/FilePreviewModal';
 import { PageLoader } from '../components/common/Loading';
 import { useToast } from '../components/common/Toast';
 import { FileText, ReceiptText, MapPin, Clock, ArrowLeft, AlertCircle, Download } from 'lucide-react';
@@ -21,6 +22,7 @@ export default function DpdDetail() {
   const { user } = useAuth();
   const { show: showToast, ToastComponent } = useToast();
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [filePreview, setFilePreview] = useState({ isOpen: false, url: null, name: null });
 
   const { data, isLoading } = useQuery({
     queryKey: ['dpd', id],
@@ -107,6 +109,14 @@ export default function DpdDetail() {
 
   const confirmSubmit = () => {
     submitMutation.mutate();
+  };
+
+  const openFilePreview = (url, name) => {
+    setFilePreview({ isOpen: true, url, name });
+  };
+
+  const closeFilePreview = () => {
+    setFilePreview({ isOpen: false, url: null, name: null });
   };
 
   return (
@@ -332,10 +342,20 @@ export default function DpdDetail() {
                 <div key={i} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                   <h4 className="font-medium text-gray-900 mb-1">{r.title}</h4>
                   {r.description && <p className="text-sm text-gray-600 mb-2">{r.description}</p>}
-                  {r.attachment_path && (
-                    <a href={r.attachment_path} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline hover:text-blue-800">
-                      Lihat file
-                    </a>
+                  {r.attachment_urls && r.attachment_urls.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {r.attachment_urls.map((url, idx) => (
+                        <Button
+                          key={idx}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => openFilePreview(url, `${r.title} - File ${idx + 1}`)}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          File {idx + 1}
+                        </Button>
+                      ))}
+                    </div>
                   )}
                 </div>
               ))}
@@ -375,16 +395,24 @@ export default function DpdDetail() {
                     <span className="font-semibold text-emerald-700">{formatCurrency(e.amount)}</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{e.description}</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500">
-                      Tanggal: {formatDate(e.expense_date)}
-                    </p>
-                    {e.attachment_path && (
-                      <a href={e.attachment_path} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline hover:text-blue-800">
-                        Lihat file nota
-                      </a>
-                    )}
-                  </div>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Tanggal: {formatDate(e.expense_date)}
+                  </p>
+                  {e.attachment_urls && e.attachment_urls.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {e.attachment_urls.map((url, idx) => (
+                        <Button
+                          key={idx}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => openFilePreview(url, `Nota ${e.category?.name} - File ${idx + 1}`)}
+                        >
+                          <ReceiptText className="w-4 h-4 mr-2" />
+                          File {idx + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               <div className="border-t border-gray-200 pt-4 flex justify-end">
@@ -430,6 +458,14 @@ export default function DpdDetail() {
           </div>
         </div>
       </Modal>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        isOpen={filePreview.isOpen}
+        onClose={closeFilePreview}
+        fileUrl={filePreview.url}
+        fileName={filePreview.name}
+      />
     </div>
   );
 }
