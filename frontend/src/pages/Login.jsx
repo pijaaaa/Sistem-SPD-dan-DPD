@@ -78,7 +78,7 @@ export default function Login() {
               }}
             >
               <img 
-                src="/logo.png" 
+                src="/bsplogo.png" 
                 alt="Logo" 
                 style={{ 
                   width: '100%', 
