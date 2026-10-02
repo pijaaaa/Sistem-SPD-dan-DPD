@@ -15,6 +15,10 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, string $role): Response
     {
+        if ($request->user() && $request->user()->employee && $request->user()->employee->role->name === 'super_admin') {
+            return $next($request);
+        }
+
         if (!$request->user() || !$request->user()->employee || $request->user()->employee->role->name !== $role) {
             return response()->json(['message' => 'Forbidden. Akses ditolak.'], 403);
         }

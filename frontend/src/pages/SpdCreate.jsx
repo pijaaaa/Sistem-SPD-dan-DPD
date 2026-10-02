@@ -5,7 +5,7 @@ import api from '../services/api';
 import { Button } from '../components/common/Button';
 import { FormField } from '../components/common/FormField';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, FileText, Calendar, Users, Check, ArrowLeft, Search } from 'lucide-react';
+import { MapPin, FileText, Calendar, Users, Check, ArrowLeft, Search, AlertCircle } from 'lucide-react';
 
 export default function SpdCreate() {
   const queryClient = useQueryClient();
@@ -29,6 +29,7 @@ export default function SpdCreate() {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showOnDutyPopup, setShowOnDutyPopup] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: async (payload) => (await api.post('/api/spd', payload)).data,
@@ -56,6 +57,9 @@ export default function SpdCreate() {
       const loggedInEmp = allEmployees.find(e => e.id === myEmployeeId);
       if (loggedInEmp) {
         setSelectedEmployees([myEmployeeId]);
+        if (loggedInEmp.is_on_trip) {
+          setShowOnDutyPopup(true);
+        }
       }
     }
   }, [allEmployees, myEmployeeId]);
@@ -99,6 +103,38 @@ export default function SpdCreate() {
         <div className="animate-pulse space-y-4">
           <div className="h-10 bg-gray-200 rounded-lg w-64 mx-auto"></div>
           <div className="h-48 bg-gray-200 rounded-lg"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showOnDutyPopup) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Buat Surat Perjalanan Dinas</h1>
+            <p className="text-sm text-gray-600 mt-1">Lengkapi informasi perjalanan dinas Anda</p>
+          </div>
+          <Button variant="secondary" onClick={() => navigate('/spd')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Kembali
+          </Button>
+        </div>
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center">
+            <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-3">Sedang Dalam Perjalanan</h2>
+            <p className="text-gray-600 mb-6">
+              Anda sedang dalam perjalanan dinas (on duty). Anda tidak dapat membuat SPD baru pada saat ini.
+            </p>
+            <Button onClick={() => navigate('/spd')} className="w-full">
+              Kembali ke Daftar SPD
+            </Button>
+          </div>
         </div>
       </div>
     );

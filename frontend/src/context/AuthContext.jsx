@@ -38,12 +38,16 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+  };
+
   const hasRole = (roleName) => {
     return user?.employee?.role?.name === roleName;
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, hasRole, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

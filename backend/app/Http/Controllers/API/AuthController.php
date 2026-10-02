@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -55,6 +56,40 @@ class AuthController extends Controller
     public function user(Request $request)
     {
         return response()->json($this->serializeUser($request->user()));
+    }
+
+    public function updateName(Request $request)
+    {
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $user = $request->user();
+        $user->update(['name' => $request->name]);
+
+        if ($user->employee) {
+            $user->employee->update(['name' => $request->name]);
+        }
+
+        return response()->json($this->serializeUser($user));
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'confirmed', 'min:8'],
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'Password saat ini tidak sesuai.'], 422);
+        }
+
+        $user->update(['password' => $request->password]);
+
+        return response()->json(['message' => 'Password berhasil diperbarui.']);
     }
 
     private function serializeUser(User $user): array

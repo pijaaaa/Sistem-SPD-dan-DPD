@@ -44,32 +44,32 @@ function AppRoutes() {
         <Route path="/" element={<DashboardPlaceholder />} />
         
         {/* SPD Routes - Milestone 3 */}
-        <Route path="/spd/create" element={
-          <ProtectedRoute roles={['user', 'team_manager', 'manager']}><SpdCreate /></ProtectedRoute>
-        } />
+         <Route path="/spd/create" element={
+            <ProtectedRoute roles={['user', 'team_manager', 'manager', 'super_admin']}><SpdCreate /></ProtectedRoute>
+         } />
         <Route path="/spd" element={<SpdList />} />
         <Route path="/spd/:id" element={<SpdDetail />} />
          <Route path="/my-requests" element={<MyRequests />} />
-        <Route path="/approvals" element={
-          <ProtectedRoute roles={['team_manager', 'manager', 'general_manager']}>
-            <Approvals />
-          </ProtectedRoute>
-        } />
-        <Route path="/dpd-approvals" element={
-          <ProtectedRoute roles={['team_manager', 'manager', 'general_manager']}>
-            <DpdApprovals />
-          </ProtectedRoute>
-        } />
-        <Route path="/settings" element={
-          <ProtectedRoute requireRole="general_manager">
-            <Settings />
-          </ProtectedRoute>
-        } />
-        <Route path="/delegations" element={
-          <ProtectedRoute requireRole="general_manager">
-            <Delegations />
-          </ProtectedRoute>
-        } />
+         <Route path="/approvals" element={
+           <ProtectedRoute roles={['team_manager', 'manager', 'general_manager', 'super_admin']}>
+             <Approvals />
+           </ProtectedRoute>
+         } />
+         <Route path="/dpd-approvals" element={
+           <ProtectedRoute roles={['team_manager', 'manager', 'general_manager', 'super_admin']}>
+             <DpdApprovals />
+           </ProtectedRoute>
+         } />
+         <Route path="/settings" element={
+           <ProtectedRoute roles={['general_manager', 'super_admin']}>
+             <Settings />
+           </ProtectedRoute>
+         } />
+         <Route path="/delegations" element={
+           <ProtectedRoute roles={['general_manager', 'super_admin']}>
+             <Delegations />
+           </ProtectedRoute>
+         } />
         
         {/* DPD Routes - Milestone 6 */}
         <Route path="/dpd/create" element={<DpdCreate />} />
