@@ -285,7 +285,7 @@ export default function DpdDetail() {
 
             {dpd.spd.employees?.length > 0 && (
               <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Peserta SPD</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Pengikut SPD</h4>
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>

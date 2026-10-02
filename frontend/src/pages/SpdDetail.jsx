@@ -176,14 +176,14 @@ export default function SpdDetail() {
           </div>
         </div>
 
-        {/* Peserta */}
+        {/* Pengikut */}
         <div className="bg-gradient-to-br from-purple-50 to-white border border-purple-100 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
               <Users className="w-5 h-5 text-purple-600" />
             </div>
             <div className="flex-1">
-              <p className="text-xs text-purple-600 font-semibold uppercase">Peserta</p>
+              <p className="text-xs text-purple-600 font-semibold uppercase">Pengikut</p>
               <p className="font-semibold text-gray-900 mt-1">{spd.employees?.length || 0} Orang</p>
             </div>
           </div>
@@ -231,10 +231,10 @@ export default function SpdDetail() {
         </div>
       </div>
 
-      {/* Peserta SPD */}
+      {/* Pengikut SPD */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Peserta SPD</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Pengikut SPD</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -263,7 +263,7 @@ export default function SpdDetail() {
                         Utama
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-500">Peserta</span>
+                      <span className="text-xs text-gray-500">Pengikut</span>
                     )}
                   </td>
                 </tr>

@@ -228,7 +228,7 @@ export default function SpdCreate() {
           </div>
         </div>
 
-        {/* Step 2: Peserta */}
+        {/* Step 2: Pengikut */}
         <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl border border-blue-100 overflow-hidden">
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
             <div className="flex items-center gap-3">
@@ -236,8 +236,8 @@ export default function SpdCreate() {
                 <Users className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Pilih Peserta</h3>
-                <p className="text-blue-100 text-sm">Anda sebagai pemohon utama + peserta lainnya</p>
+                <h3 className="text-lg font-semibold text-white">Pilih Pengikut</h3>
+                <p className="text-blue-100 text-sm">Anda sebagai pemohon utama + pengikut lainnya</p>
               </div>
             </div>
           </div>
@@ -348,7 +348,7 @@ export default function SpdCreate() {
             <div className="flex items-center justify-between bg-gray-50 px-4 py-3 rounded-lg">
               <p className="text-sm text-gray-600">
                 <Users className="w-4 h-4 inline mr-1" />
-                Total peserta terpilih:
+                Total pengikut terpilih:
               </p>
               <span className="text-lg font-bold text-emerald-700">{selectedEmployees.length}</span>
             </div>
