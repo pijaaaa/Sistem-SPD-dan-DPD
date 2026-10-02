@@ -21,7 +21,7 @@ class SpdPolicy
         if ($user->employee?->role->name === 'super_admin') return true;
 
         $isParticipant = SpdEmployee::where('spd_id', $spd->id)
-            ->where('employee_id', $user->employee_id)
+            ->where('employee_id', $user->employee?->id)
             ->exists();
 
         return $isParticipant;

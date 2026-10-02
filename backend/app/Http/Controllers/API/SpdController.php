@@ -106,6 +106,8 @@ class SpdController extends Controller
 
     public function show(Spd $spd)
     {
+        $this->authorize('view', $spd);
+        
         $spd->load([
             'department', 
             'employees.employee.user', 

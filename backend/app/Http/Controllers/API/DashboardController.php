@@ -218,7 +218,7 @@ class DashboardController extends Controller
 
     private function getDepartmentStats(): array
     {
-        $departments = Department::withCount(['employees'])->get();
+        $departments = Department::withCount(['employees'])->with(['employees:id,department_id'])->get();
         
         return $departments->map(function ($dept) {
             $employeeIds = $dept->employees->pluck('id');
@@ -263,7 +263,7 @@ class DashboardController extends Controller
                     'title' => 'DPD - ' . ($dpd->spd->destination ?? 'N/A'),
                     'status' => $dpd->status,
                     'created_at' => $dpd->created_at->diffForHumans(),
-                    'employee' => $dpd->employee->user->name ?? '-',
+                    'employee' => $dpd->employee?->user?->name ?? '-',
                 ];
             });
 

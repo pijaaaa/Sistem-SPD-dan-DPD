@@ -20,10 +20,10 @@ class DpdPolicy
     {
         if ($user->employee?->role->name === 'super_admin') return true;
 
-        if ($dpd->employee_id === $user->employee_id) return true;
+        if ($dpd->employee_id === $user->employee?->id) return true;
 
         $isParticipant = SpdEmployee::where('spd_id', $dpd->spd_id)
-            ->where('employee_id', $user->employee_id)
+            ->where('employee_id', $user->employee?->id)
             ->exists();
 
         return $isParticipant;
@@ -37,14 +37,14 @@ class DpdPolicy
     public function update(User $user, Dpd $dpd): bool
     {
         if ($user->employee?->role->name === 'super_admin') return true;
-        if ($dpd->employee_id !== $user->employee_id) return false;
+        if ($dpd->employee_id !== $user->employee?->id) return false;
         return $dpd->status === 'draft';
     }
 
     public function delete(User $user, Dpd $dpd): bool
     {
         if ($user->employee?->role->name === 'super_admin') return true;
-        if ($dpd->employee_id !== $user->employee_id) return false;
+        if ($dpd->employee_id !== $user->employee?->id) return false;
         return $dpd->status === 'draft';
     }
 }

@@ -13,6 +13,7 @@ use App\Models\Employee;
 use App\Services\AppSettingService;
 use App\Services\DpdApprovalService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Dompdf\Dompdf;
@@ -43,6 +44,8 @@ class DpdController extends Controller
 
     public function show(Dpd $dpd)
     {
+        $this->authorize('view', $dpd);
+        
         $dpd->load([
             'spd.employees.employee', 
             'employee.user', 
@@ -390,7 +393,11 @@ class DpdController extends Controller
 
     public function categories()
     {
-        return response()->json(DpdExpenseCategory::all());
+        return response()->json(
+            Cache::remember('dpd_expense_categories', 300, function () {
+                return DpdExpenseCategory::all();
+            })
+        );
     }
 
     public function downloadFile(Request $request)
@@ -400,16 +407,53 @@ class DpdController extends Controller
         ]);
 
         $filePath = $validated['path'];
-        $fullPath = storage_path('app/public/' . $filePath);
 
-        if (!file_exists($fullPath)) {
+        if (str_contains($filePath, '..') || str_starts_with($filePath, '/')) {
+            return response()->json(['message' => 'Path tidak valid.'], 400);
+        }
+
+        $disk = Storage::disk('public');
+
+        if (!$disk->exists($filePath)) {
             return response()->json(['message' => 'File tidak ditemukan.'], 404);
         }
 
+        $user = $request->user();
+        $employee = $user->employee;
+
+        if ($employee && $employee->role->name !== 'super_admin') {
+            $dpdIds = DpdReport::whereJsonContains('attachments', $filePath)
+                ->pluck('dpd_id')
+                ->toArray();
+
+            $dpdIds = array_merge($dpdIds, DpdExpense::whereJsonContains('attachments', $filePath)
+                ->pluck('dpd_id')
+                ->toArray());
+
+            if (empty($dpdIds)) {
+                return response()->json(['message' => 'File tidak ditemukan atau Anda tidak memiliki akses.'], 404);
+            }
+
+            $authorized = Dpd::whereIn('id', $dpdIds)
+                ->where(function ($q) use ($employee) {
+                    $q->where('employee_id', $employee->id)
+                      ->orWhereHas('spd.employees', function ($sq) use ($employee) {
+                          $sq->where('employee_id', $employee->id);
+                      });
+                })
+                ->exists();
+
+            if (!$authorized) {
+                return response()->json(['message' => 'Anda tidak memiliki akses untuk mengunduh file ini.'], 403);
+            }
+        }
+
         $fileName = basename($filePath);
-        
-        return response()->download($fullPath, $fileName, [
-            'Content-Type' => mime_content_type($fullPath),
+        $content = $disk->get($filePath);
+        $mimeType = $disk->mimeType($filePath);
+
+        return response($content, 200, [
+            'Content-Type' => $mimeType,
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
     }

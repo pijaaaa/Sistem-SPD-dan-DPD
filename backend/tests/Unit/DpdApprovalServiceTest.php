@@ -18,6 +18,7 @@ use App\Models\DpdExpenseCategory;
 use App\Services\DpdApprovalService;
 use App\Services\AppSettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 
 class DpdApprovalServiceTest extends TestCase
 {
@@ -58,7 +59,7 @@ class DpdApprovalServiceTest extends TestCase
 
     private function createEmp($name, $role, $deptId)
     {
-        $u = User::create(['name' => $name, 'email' => strtolower($name).'@dpd.test', 'password' => 'pass']);
+        $u = User::create(['name' => $name, 'email' => strtolower($name).'@dpd.test', 'password' => Hash::make('pass')]);
         return Employee::create([
             'user_id' => $u->id,
             'role_id' => $role->id,

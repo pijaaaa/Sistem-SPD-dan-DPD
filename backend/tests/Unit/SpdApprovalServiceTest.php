@@ -14,6 +14,7 @@ use App\Models\Department;
 use App\Models\Delegation;
 use App\Services\SpdApprovalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 
 class SpdApprovalServiceTest extends TestCase
 {
@@ -53,7 +54,7 @@ class SpdApprovalServiceTest extends TestCase
 
     private function createEmp($name, $role, $deptId)
     {
-        $u = User::create(['name' => $name, 'email' => strtolower(str_replace(' ', '', $name)).'@test.com', 'password' => 'pass']);
+        $u = User::create(['name' => $name, 'email' => strtolower(str_replace(' ', '', $name)).'@test.com', 'password' => Hash::make('pass')]);
         return Employee::create([
             'user_id' => $u->id,
             'role_id' => $role->id,

@@ -14,7 +14,7 @@ class CaptchaController extends Controller
         $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         $code = '';
         for ($i = 0; $i < 5; $i++) {
-            $code .= $chars[rand(0, strlen($chars) - 1)];
+            $code .= $chars[random_int(0, strlen($chars) - 1)];
         }
 
         $key = 'captcha_' . Str::random(32);
@@ -42,7 +42,7 @@ class CaptchaController extends Controller
             return response()->json(['valid' => false, 'message' => 'Captcha expired'], 422);
         }
 
-        $valid = strtoupper($request->captcha) === $code;
+        $valid = hash_equals($code, strtoupper($request->captcha));
 
         if ($valid) {
             Cache::forget($key);

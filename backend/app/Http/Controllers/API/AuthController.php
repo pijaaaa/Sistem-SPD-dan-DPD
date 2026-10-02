@@ -27,7 +27,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Kode keamanan kadaluarsa. Silakan refresh.'], 422);
         }
 
-        if (strtoupper($request->captcha) !== $captchaCode) {
+        if (!hash_equals($captchaCode, strtoupper($request->captcha))) {
             Cache::forget($captchaKey);
             return response()->json(['message' => 'Kode keamanan tidak sesuai.'], 422);
         }

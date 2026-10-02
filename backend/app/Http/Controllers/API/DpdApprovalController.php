@@ -76,13 +76,9 @@ class DpdApprovalController extends Controller
         return response()->json(['message' => 'Approval chain generated.']);
     }
 
-    public function validateSubmission(Request $request)
+    public function validateSubmission(Dpd $dpd)
     {
-        $validated = $request->validate([
-            'dpd_id' => 'required|exists:dpds,id',
-        ]);
-
-        $dpd = Dpd::findOrFail($validated['dpd_id']);
+        $dpd->load('spd');
 
         if ($dpd->spd->status !== 'approved') {
             return response()->json(['message' => 'SPD belum approved.'], 422);
