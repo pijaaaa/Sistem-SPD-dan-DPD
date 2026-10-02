@@ -1,13 +1,14 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { LoadingSpinner } from './Loading';
 
 export const ProtectedRoute = ({ children, requireRole, roles = [] }) => {
   const { user, isLoading, hasRole } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
-    return <div className="flex h-screen items-center justify-center">Memuat...</div>;
+    return <LoadingSpinner size="xl" fullScreen={true} text="Memuat..." />;
   }
 
   if (!user) {

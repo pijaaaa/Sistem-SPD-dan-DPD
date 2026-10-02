@@ -445,11 +445,22 @@ class PdfHelper
         $roleLevel = self::getRoleLevel($requesterRoleName);
         
         if ($roleLevel == 1) {
-            // User level 1: 2 kolom di atas, manager di tengah bawah
+            // User level 1: manager di tengah atas, pemohon dan team manager di bawah kiri-kanan
             $teamManager = self::getApproverByRole($requesterDeptId, 'team_manager');
             $manager = self::getApproverByRole($requesterDeptId, 'manager');
             
-            // Row 1 - Atas (2 kolom)
+            // Row 1 - Atas (Manager tepat di tengah)
+            $html .= '<table class="sig-table"><tr>';
+            $html .= '<td style="width:25%;"></td>';
+            $html .= '<td style="width:50%;">';
+            $html .= '<div class="signature-title">Manager</div>';
+            $html .= '<div class="signature-name">' . self::escape($manager['name']) . '</div>';
+            $html .= '<div class="signature-role">' . self::escape($manager['dept']) . '</div>';
+            $html .= '</td>';
+            $html .= '<td style="width:25%;"></td>';
+            $html .= '</tr></table>';
+            
+            // Row 2 - Bawah (2 kolom)
             $html .= '<table class="sig-table"><tr>';
             
             $html .= '<td style="width:50%;">';
@@ -464,17 +475,6 @@ class PdfHelper
             $html .= '<div class="signature-role">' . self::escape($teamManager['dept']) . '</div>';
             $html .= '</td>';
             
-            $html .= '</tr></table>';
-            
-            // Row 2 - Bawah (Manager tepat di tengah)
-            $html .= '<table class="sig-table"><tr>';
-            $html .= '<td style="width:25%;"></td>';
-            $html .= '<td style="width:50%;">';
-            $html .= '<div class="signature-title">Manager</div>';
-            $html .= '<div class="signature-name">' . self::escape($manager['name']) . '</div>';
-            $html .= '<div class="signature-role">' . self::escape($manager['dept']) . '</div>';
-            $html .= '</td>';
-            $html .= '<td style="width:25%;"></td>';
             $html .= '</tr></table>';
             
         } elseif ($roleLevel == 2) {

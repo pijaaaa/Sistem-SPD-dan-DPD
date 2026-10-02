@@ -10,7 +10,7 @@ import StatusChart from '../components/dashboard/StatusChart';
 import RecentActivities from '../components/dashboard/RecentActivities';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle } from 'lucide-react';
-import { PageLoader, SkeletonCard } from '../components/common/Loading';
+import { LoadingSpinner, PageLoader, SkeletonCard } from '../components/common/Loading';
 
 const SuperAdminDashboard = ({ data }) => (
   <div className="space-y-6">
