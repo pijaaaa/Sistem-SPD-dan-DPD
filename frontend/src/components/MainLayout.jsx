@@ -131,7 +131,7 @@ export default function MainLayout() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto py-6">
+          <div className="flex-1 overflow-y-auto scrollbar-none py-6">
             {menuSections.map((section) => section.items.length > 0 && (
               <div key={section.title} className="mb-6">
                 <h3 className="px-6 text-xs font-semibold text-emerald-300 uppercase tracking-wider mb-3">
